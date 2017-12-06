@@ -12,8 +12,9 @@
 #define MAP_LINES 10
 #define MAP_COLUMNS 10
 #define BUFF_SIZE 1024
-
+#define PORT 5000
 extern int errno;
+typedef struct pipe_com_handler  pipe_com_handler;
 //struct game_data{
 //	int fd_cl_A = -1; //file descriptor client 1
 //	int fd_cl_B = -1; //file descriptor client 2
@@ -24,43 +25,73 @@ extern int errno;
 //	int score_player_B = 0; //scorul jucatorilor
 //};
 
+
+struct pipe_com_handler{ //communication handler
+	int cl_A;
+	int cl_B;
+
+	char message[BUFF_SIZE];
+};
+
 int str_echo(int s);
+void write_to_pipe(int pipe_desc[2]);
+pipe_com_handler read_from_pipe(int pipe_desc[2]);
 //void play_game(struct gameData);
 
 
 int main()
 {
-	int ls,client_descriptor,len;
-	struct sockaddr_in serv,cli;
+	int server_descriptor,client_descriptor,len;
+	struct sockaddr_in serv,cli; 
 	pid_t pid;
 	int number_of_clients = 0;
 	int nfds = 3; //number of file descriptors
+	int optval=1; //opt for setsocketopt()
 
-	puts("I am Server...");
-//creating socket
-	ls=socket(AF_INET,SOCK_STREAM,0);
-	puts("Socket Created Successfully...");
-//socket address structure
-	serv.sin_family=AF_INET;
-	serv.sin_addr.s_addr=INADDR_ANY;
-	serv.sin_port=htons(5000);
+	//creating socket
+	if ((server_descriptor = socket (AF_INET, SOCK_STREAM, 0)) == -1)
+	{
+		perror ("Error creating socket()\n");
+		return errno;
+	}
+
+	//socket options
+	setsockopt(server_descriptor, SOL_SOCKET, SO_REUSEADDR,&optval,sizeof(optval));
+
+	//socket address structure
+	serv.sin_family = AF_INET;
+	serv.sin_addr.s_addr = htonl(INADDR_ANY); //127.0.0.1
+	serv.sin_port=htons(PORT); //5000
 
 
-	bind(ls,(struct sockaddr*)&serv,sizeof(serv));
-	puts("Binding Done...");
-	listen(ls,5);
-	puts("Listening for Client...");
+
+	if ((bind(server_descriptor,(struct sockaddr*)&serv,sizeof(serv))) == -1)
+	{
+		perror ("Error binding()\n");
+		return errno;
+	}
+	if(listen(server_descriptor,5) == -1)
+	{
+		perror ("Error listening()\n");
+		return errno;
+	}
+
 	for(; ;)
 	{
 		len=sizeof(cli);
-//accepting client connection
-		client_descriptor=accept(ls,(struct sockaddr*)&cli,&len);
+	//accepting client connection
+		client_descriptor=accept(server_descriptor,(struct sockaddr*)&cli, &len);	
+		if (client_descriptor < 0)
+		{
+			perror ("Error accepting()\n");
+			continue;
+		}
 		//puts("Connected to Client..."); 
 		printf("Connected to Client with DESCRIPTOR = %d\n", client_descriptor);
-//creating child process
+	//creating child process
 
 		 if (nfds < client_descriptor) /* ajusteaza valoarea maximului */
-            nfds = client_descriptor;
+		nfds = client_descriptor;
 
 
 		int pipe_desc[2]; //0 = read 1 = write
@@ -71,15 +102,28 @@ int main()
 
 		if((pid=fork()) == 0)
 		{
+			printf("Child proces created with PID = %d\n", getpid());
+
 			//char b;
 			//b = itoa(client_descriptor);
-			write(pipe_desc[1], &client_descriptor, sizeof(client_descriptor));
+			if ( write(pipe_desc[1], &client_descriptor, sizeof(client_descriptor)) < 0)
+			{
+				perror("Error writing to pipe from child \n");
+				close(server_descriptor);
+				close(client_descriptor);
+				close(pipe_desc[1]);
+				close(pipe_desc[0]);
+				printf("Child proces KILLED with PID = %d\n", getpid());
+				exit(0);
+			}
 
-			//puts("Child process created...");
-			printf("Child proces created with PID = %d\n", getpid());
 			str_echo(client_descriptor);
-			close(ls);
+			
+			//puts("Child process created...");
+			close(server_descriptor);
 			close(client_descriptor);
+			close(pipe_desc[1]);
+			close(pipe_desc[0]);
 			printf("Child proces KILLED with PID = %d\n", getpid());
 			exit(0);
 		}
@@ -115,61 +159,56 @@ int main()
 				//clt_B = atoi(b);
 			}
 		}
+		int status;
+		waitpid(-1, &status, WNOHANG); //nu lasam copii atarnati, orfani, zombi etc
 
 		//number_of_clients--;
-		close(client_descriptor);
+
 	}
+	close(client_descriptor);
 	return 0;
 }
 
 int str_echo(int s)
 {
-	//char buf[50];
-	//do{
-//receiving data from client
-		//recv(s,buf,50,0);
-		//puts("Message from Client...");
-		//fputs(buf,stdout);
-		//send(s,buf,50,0);
-	//}while(strlen(buf)>1);
-
   char buffer[BUFF_SIZE];		/* mesajul */
   int bytes;			/* numarul de octeti cititi/scrisi */
   char msg[BUFF_SIZE];		//mesajul primit de la client 
   char msgrasp[BUFF_SIZE]=" ";        //mesaj de raspuns pentru client
-printf("Talking with client : %d\n", s);
+
+  printf("Talking with client : %d\n", s);
+  fflush (stdout);
+
   bzero(msg, BUFF_SIZE);
-do{
 
-  bytes = read (s, msg, BUFF_SIZE);
-  if (bytes < 0)
-    {
-      perror ("Eroare la read() de la client.\n");
-      return errno;
-    }
-    if (bytes == 0)
-    {
-      //printf("s-a stins\n");
-      return 0;
-    }
-  printf ("[server]Mesajul a fost receptionat...%s\n", msg);
-  //printf("StrlenMSG 1 : \"%s\" =  %d\n",msg, strlen(msg) );
-  /*pregatim mesajul de raspuns */
-  //bzero(msgrasp,BUFF_SIZE);
-  //strcat(msgrasp,"Hello ");
-  //strcat(msgrasp,msg);
-      
-  //printf("[server]Trimitem mesajul inapoi...%s\n",msg);
-      
-  if (write (s, msg, bytes) < 0)
-    {
-      perror ("[server] Eroare la write() catre client.\n");
-      return errno;
-    }
+  do{
 
-  }while(strlen(msg) > 1);
+  	bytes = read (s, msg, BUFF_SIZE);
+  	if (bytes < 0)
+  	{
+  		perror ("Error reading from client()\n");
+  		return errno;
+  	}
+  	
+  	if (bytes == 0 )
+  	{
+  		printf("s-a stins\n");
+  		return bytes;
+  	}
 
-  printf("StrlenMSG: \"%s\" =  %d\n",msg, strlen(msg) );
+  	printf ("Client: %s\n", msg);
+  	fflush (stdout);
+  	
+  	if (write (s, msg, bytes) < 0)
+  	{
+  		perror ("Error writing to client()\n");
+  		return errno;
+  	}
+  	
+
+  }while(bytes > 0);
+  printf("Bytes = %d\n", bytes);
+
   return bytes;
 }
 
