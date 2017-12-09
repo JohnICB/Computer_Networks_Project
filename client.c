@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
@@ -63,7 +64,18 @@ int str_echo(int server_fd)
 			return errno;
 		}
 
+		if (strlen(buf) == 1)
+		{
+			printf("Type something..\n");
+		}
+
 		buf[strlen(buf) - 1] = '\0'; //remove '\n'
+
+		if (strcmp(buf, "/quit") == 0)
+		{
+			printf("Thanks for playing! Exiting now..\n");
+			return 0;
+		}
 		
 		if(strlen(buf) > 0)
 		{
