@@ -11,11 +11,23 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define BUFF_SIZE 1024
 
 
 extern int errno;
+
+typedef struct pipes pipes;
+
+struct pipes
+{
+    char buffer[100];
+    int client_desc;
+    int client_id;
+
+    bool isInUse;
+};
 
 int str_echo(int server_fd); //takes care of the communication
 
@@ -23,7 +35,10 @@ int main()
 {
 	int server_fd;
 	struct sockaddr_in server;
+	int answer = 0;
 /*creating socket*/
+while (answer == 0)
+{
 	if ( (server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1)
 		{
 		perror ("Error creating socket()\n");
@@ -43,9 +58,9 @@ int main()
       return errno;
     }
 
-	str_echo(server_fd); //communication takes place here
-
+	answer = str_echo(server_fd); //communication takes place here
 	close(server_fd);
+}
 	return 0;
 }
 int str_echo(int server_fd)
@@ -53,18 +68,19 @@ int str_echo(int server_fd)
 	char buf[BUFF_SIZE];//,buf1[BUFF_SIZE];
 	int bytes = 0;
 	int sz = 1; //bytes size
-	printf("Reading from Server...\n");
+	//printf("Reading from Server...\n");
 	bzero(&buf, BUFF_SIZE);
 	int cl_number;
+	pipes pip;
 
-	if ((bytes = read(server_fd, &cl_number, BUFF_SIZE)) < 0)
+	if ((bytes = read(server_fd, &pip, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
-	printf("Server: %d\n", cl_number);
-
-	if (cl_number % 2 == 0)
+	//printf("Server: %d\n", pip.client_desc);
+	//printf("Server: %s\n", pip.buffer);
+	if (pip.client_desc % 2 == 0)
 	{
 		printf("You are client A!\n");
 
@@ -85,6 +101,18 @@ int str_echo(int server_fd)
 				perror ("Error reading from stdin\n");
 				return errno;
 			}
+			//if (strlen(buf) == 1)
+			//{
+			//	printf("Type something..\n");
+			//}
+
+			buf[strlen(buf) - 1] = '\0'; //remove '\n'
+			//printf("cmp: %d\n",strcmp(buf, "/quit"));
+			if (strcmp(buf, "/quit") == 0)
+			{
+				printf("Thanks for playing! Exiting now..\n");
+				return 1;
+			}
 			//printf("You said: %s",buf);
 			//fflush(stdout);
 
@@ -100,7 +128,13 @@ int str_echo(int server_fd)
 				perror ("Error reading from stdin\n");
 				return errno;
 			}
-			printf("Client B: %s",buf);
+
+		  	if (strcmp(buf, "DISCONNECTED") == 0)
+			{
+				printf("Opponent has dissconnected..\nReconnecting..\n");
+				return 0;
+			}
+			printf("Client B: %s\n",buf);
 			fflush(stdout);
 
 		}while(1);
@@ -117,23 +151,49 @@ int str_echo(int server_fd)
 				perror ("Error reading from stdin\n");
 				return errno;
 			}
-			printf("Client A: %s",buf);
+			if (bytes == 0)
+			{
+				printf("Lost connection to the server...\nWant to try to reconnect ? Y/N..\n");
+				///TODO: handle answer
+				return 0;
+			}
+		  	if (strcmp(buf, "DISCONNECTED") == 0)
+			{
+				printf("Opponent has dissconnected..\n");
+				return 0;
+			}
+
+			printf("Client A: %s\n",buf);
 			fflush(stdout);
 
 			bzero(buf, BUFF_SIZE);
+			printf("You: ");
+			fflush(stdout);
 			if ((bytes = read(0, buf, BUFF_SIZE)) < 0)
 			{
 				perror ("Error reading from stdin\n");
 				return errno;
 			}
-			printf("You said: %s",buf);
-			fflush(stdout);
+			//if (strlen(buf) == 1)
+			//{
+			//	printf("Type something..\n");
+			//}
+
+			buf[strlen(buf) - 1] = '\0'; //remove '\n'
+			//printf("cmp: %d\n",strcmp(buf, "/quit"));
+			if (strcmp(buf, "/quit") == 0)
+			{
+				printf("Thanks for playing! Exiting now..\n");
+				return 1;
+			}
 
 			if (write (server_fd, buf, BUFF_SIZE) < 0)
 		    {
 		      perror ("Error while writing to the Server.\n");
 		      return errno;
 		  	}
+
+		
 	
 		}while(bytes > 0);
  
