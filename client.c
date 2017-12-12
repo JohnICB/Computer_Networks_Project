@@ -53,33 +53,40 @@ int str_echo(int server_fd)
 	char buf[BUFF_SIZE];//,buf1[BUFF_SIZE];
 	int bytes = 0;
 	int sz = 1; //bytes size
-	do{
-		bzero(buf, BUFF_SIZE);
-		printf("Enter the Message...\n");
-		fflush (stdout);
-		
-		if ((bytes = read(0, buf, BUFF_SIZE)) < 0)
-		{
-			perror ("Error reading from stdin\n");
-			return errno;
-		}
+	printf("Reading from Server...\n");
+	bzero(&buf, BUFF_SIZE);
+	int cl_number;
 
-		if (strlen(buf) == 1)
-		{
-			printf("Type something..\n");
-		}
+	if ((bytes = read(server_fd, &cl_number, BUFF_SIZE)) < 0)
+	{
+		perror ("Error reading from stdin\n");
+		return errno;
+	}
+	printf("Server: %d\n", cl_number);
 
-		buf[strlen(buf) - 1] = '\0'; //remove '\n'
+	if (cl_number % 2 == 0)
+	{
+		printf("You are client A!\n");
 
-		if (strcmp(buf, "/quit") == 0)
-		{
-			printf("Thanks for playing! Exiting now..\n");
-			return 0;
-		}
-		
-		if(strlen(buf) > 0)
-		{
-		//printf("StrlenMSG: \"%s\" =  %d\n",buf, strlen(buf) );
+		if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0)
+			{
+				perror ("Error reading from stdin\n");
+				return errno;
+			}
+		printf("The other client has connected! You start!\n");
+
+		do{
+			
+			bzero(buf, BUFF_SIZE);
+			printf("You: ");
+			fflush(stdout);
+			if ((bytes = read(0, buf, BUFF_SIZE)) < 0)
+			{
+				perror ("Error reading from stdin\n");
+				return errno;
+			}
+			//printf("You said: %s",buf);
+			//fflush(stdout);
 
 			if (write (server_fd, buf, BUFF_SIZE) < 0)
 		    {
@@ -87,24 +94,83 @@ int str_echo(int server_fd)
 		      return errno;
 		  	}
 
-
-			//receiving data from server
-			sz = read(server_fd, buf, BUFF_SIZE);
-			if (sz < 0)
+		  	bzero(buf, BUFF_SIZE);
+			if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0)
 			{
 				perror ("Error reading from stdin\n");
 				return errno;
 			}
-			printf("Server: %s\n",buf);
-			fflush (stdout);
-		}
-		else
-		{
-			
-		}
-		
-	
-	}while(bytes > 0);
- 
+			printf("Client B: %s",buf);
+			fflush(stdout);
 
+		}while(1);
+	}
+	else
+	{
+		printf("You are Client B You are second!\n" );
+
+
+	do{
+			bzero(buf, BUFF_SIZE);
+			if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0)
+			{
+				perror ("Error reading from stdin\n");
+				return errno;
+			}
+			printf("Client A: %s",buf);
+			fflush(stdout);
+
+			bzero(buf, BUFF_SIZE);
+			if ((bytes = read(0, buf, BUFF_SIZE)) < 0)
+			{
+				perror ("Error reading from stdin\n");
+				return errno;
+			}
+			printf("You said: %s",buf);
+			fflush(stdout);
+
+			if (write (server_fd, buf, BUFF_SIZE) < 0)
+		    {
+		      perror ("Error while writing to the Server.\n");
+		      return errno;
+		  	}
+	
+		}while(bytes > 0);
+ 
+	}
 }
+
+		//printf("Enter the Message...\n");
+		//fflush (stdout);
+		
+		//if ((bytes = read(0, buf, BUFF_SIZE)) < 0)
+		//{
+		//	perror ("Error reading from stdin\n");
+		//	return errno;
+		//}
+
+		//if (strlen(buf) == 1)
+		//{
+		//	printf("Type something..\n");
+		//}
+
+		//buf[strlen(buf) - 1] = '\0'; //remove '\n'
+//
+//		//if (strcmp(buf, "/quit") == 0)
+//		//{
+//		//	printf("Thanks for playing! Exiting now..\n");
+//		//	return 0;
+		//}
+		
+		//if(strlen(buf) > 0)
+		//{
+		//printf("StrlenMSG: \"%s\" =  %d\n",buf, strlen(buf) );
+
+			//receiving data from server
+			//sz = read(server_fd, buf, BUFF_SIZE);
+			//if (sz < 0)
+			//{
+			//	perror ("Error reading from stdin\n");
+			//	return errno;
+			//}
+			//printf("Enter the Message...\n");
