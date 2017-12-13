@@ -4,12 +4,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <netdb.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -66,7 +63,7 @@ while (answer == 0)
 int str_echo(int server_fd)
 {
 	char buf[BUFF_SIZE];//,buf1[BUFF_SIZE];
-	int bytes = 0;
+	ssize_t bytes = 0;
 	int sz = 1; //bytes size
 	//printf("Reading from Server...\n");
 	bzero(&buf, BUFF_SIZE);
@@ -78,6 +75,7 @@ int str_echo(int server_fd)
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
+	//TODO: Insert name
 	//printf("Server: %d\n", pip.client_desc);
 	//printf("Server: %s\n", pip.buffer);
 	if (pip.client_desc % 2 == 0)

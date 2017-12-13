@@ -1,72 +1,13 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <sys/mman.h>
-#include <fcntl.h>
 
-#define BUFF_SIZE 1024
-#define PORT 5000
-#define HEIGHT 8
-#define WIDTH 8
+#include "gamedata.h"
+
 //extern int errno;
 
 
 static int *nr_clients;
-
-typedef struct pipes pipes;
-typedef struct gameData gameData;
-
-struct pipes
-{
-    char buffer[100];
-    int client_desc;
-    int client_id;
-
-    bool isInUse;
-};
-
-struct gameData
-{
-    char map[HEIGHT][WIDTH];
-    int score_A;
-    int score_B;
-    char symbol_A;
-    char symbol_B;
-};
-
-void update_map( gameData *game_data, short pos, bool isPlayerA)
-{
-    if (game_data == NULL)
-    {
-        perror("Invalid pointer to game data! \n");
-        return;
-    }
-
-    if (game_data->map[0][pos] != 0)
-    {
-        perror("Column already full\n");
-        return;
-    }
-
-    for (int i = -1; i < HEIGHT; ++i) {
-        if (game_data->map[i+1][pos] != 0)
-        {
-           if (isPlayerA)
-           {
-               game_data->map[i][pos] = game_data->symbol_A;
-           } else
-               game_data->map[i][pos] = game_data->symbol_B;
-            break;
-        }
-    }
-
-}
-
 
 void child_exiting_handler(pipes *p, int serv_desc, int clt_desc, bool isError)
 {
@@ -84,9 +25,8 @@ void child_exiting_handler(pipes *p, int serv_desc, int clt_desc, bool isError)
 
 }
 
-int simulate_clientAB(pipes *playerList)
+int simulate_clientAB(pipes *playerList, int numb)
 {
-    int numb = *nr_clients;
     pipes cltA = playerList[numb -1];
     pipes cltB = playerList[numb];
 
@@ -169,7 +109,7 @@ int main()
     nr_clients = mmap(NULL, sizeof *nr_clients, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     *nr_clients = -1;
-    //nr[0] = 0;
+
     //creating socket
     if ((server_descriptor = socket (AF_INET, SOCK_STREAM, 0)) == -1)
     {
@@ -241,7 +181,7 @@ int main()
 
             if(pid == 0)
             {
-                simulate_clientAB(pipe_handler);
+                simulate_clientAB(pipe_handler, *nr_clients);
 
                 child_exiting_handler(&pipe_handler[*nr_clients], server_descriptor, client_descriptor, false);
 
@@ -329,8 +269,8 @@ Maybe share all the array of structs so when a client disconnects updates the fi
 
 int str_echo(int clt_desc, pipes *pipe_handler)
 {
-    int bytes;			//numarul de octeti cititi/scrisi
-    unsigned char msg[BUFF_SIZE];		//mesajul primit de la client
+    int bytes;          //numarul de octeti cititi/scrisi
+    unsigned char msg[BUFF_SIZE];       //mesajul primit de la client
     bzero(msg, BUFF_SIZE);
 
     do{
