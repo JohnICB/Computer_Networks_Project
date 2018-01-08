@@ -74,12 +74,10 @@ void menu();
 
 void getPlayerInput(char *input, size_t size, int server_fd)
 {
-	bool isValid = 0;
+	int isValid = 0;
 	do{
 		bzero(input,  size);
-
-		printf("agan\n");
-
+		isValid = 0;
 		if ((read(0, input, size)) < 0)
         {
             perror ("Error reading from stdin\n");
@@ -91,8 +89,8 @@ void getPlayerInput(char *input, size_t size, int server_fd)
 			perror ("Error while writing to the Server.\n");
 			return;
 		}
-
-		if ((read(server_fd, &isValid, sizeof(isValid))) < 0)
+		 printf("Before read: %d\n", isValid);
+		if ((read(server_fd, &isValid, sizeof(int))) < 0)
         {
             perror ("Error reading from server\n");
             return;
@@ -102,33 +100,8 @@ void getPlayerInput(char *input, size_t size, int server_fd)
         fflush(stdout);
 
 	}while(isValid == 0);
-
-
-
-
-   // do{
-   //     bzero(input,  size);
-   //     if ((read(0, input, size)) < 0)
-   //     {
-   //         perror ("Error reading from stdin\n");
-   //         return;
-   //     }
-//
-//   //     input[strlen(input) - 1] = '\0'; //remove '\n'
-//   //     //printf("succes\n");
-   // }while(!checValidInput(input, (int) strlen(input)));
 }
-//void printMap(char *map)
-//{
-//	for (int i = 0; i < MAP_HEIGHT; ++i)
-//	{
-//		for (int j = 0; j < MAP_WIDTH; ++j)
-//		{
-//			printf("| %c |", map[i * j + j]);
-//		}
-//		printf("\n------------------\n");
-//	}
-//}
+
 int client_A_Handler(int server_fd, char oponnent_name[15])
 {
 	fflush(stdout);
@@ -182,7 +155,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		//	printf("Opponent has dissconnected..\nReconnecting..\n");
 		//	return 0;
 		//}
-//		printf("%s: %s\n",oponnent_name, buf);
+		//printf("%s: %s\n",oponnent_name, buf);
 		//printMap(map);
 		//bzero(&map, sizeof(map));
 		fflush(stdout);
@@ -337,6 +310,32 @@ int str_echo(int server_fd)
 	}
 }
 
+
+
+
+   // do{
+   //     bzero(input,  size);
+   //     if ((read(0, input, size)) < 0)
+   //     {
+   //         perror ("Error reading from stdin\n");
+   //         return;
+   //     }
+//
+//   //     input[strlen(input) - 1] = '\0'; //remove '\n'
+//   //     //printf("succes\n");
+   // }while(!checValidInput(input, (int) strlen(input)));
+
+//void printMap(char *map)
+//{
+//	for (int i = 0; i < MAP_HEIGHT; ++i)
+//	{
+//		for (int j = 0; j < MAP_WIDTH; ++j)
+//		{
+//			printf("| %c |", map[i * j + j]);
+//		}
+//		printf("\n------------------\n");
+//	}
+//}
 
 //bool checValidInput(char *input, int size)
 //{

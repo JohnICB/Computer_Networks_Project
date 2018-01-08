@@ -14,9 +14,10 @@ void update_map( pair *game_data, int pos, char symbol)
 
     if (game_data->map[0][pos] != 0)
     {
-        perror("Column already full\n");
-        return;
+         printf("Column already full\n");
+         return ;
     }
+
 
     for (int i = -1; i < HEIGHT; ++i) {
         if (game_data->map[i+1][pos] == 0 && i + 1 != HEIGHT)
@@ -51,11 +52,11 @@ void update_map( pair *game_data, int pos, char symbol)
 
 
 }
-bool checkValidInput(const char *input)
+int checkValidInput(const char *input)
 {
 
-    printf("%d - %s\n", (int) strlen(input), input);
-    bool ok = true;
+    //printf("%d - %s\n", (int) strlen(input), input);
+    int ok = 1;
     //printf("%s is valid \n", input);
     fflush(stdout);
 
@@ -71,22 +72,23 @@ bool checkValidInput(const char *input)
         {
             if(input[i] == ' ')
             {
-                ok = false;
+                ok = 0;
                 continue;
             }
 
             printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
             return false;
         }
-        else if(ok == false)
+        else if(ok == 0)
         {
             printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-            return false;
+            return 0;
         }
     }
 
 
-    return true;
+
+    return 1;
 }
 int playGame(playerData *playerList, int numb)
 {
@@ -140,7 +142,7 @@ int playGame(playerData *playerList, int numb)
 
     while(1)
     {
-        bool isValid = 0;
+        int isValid = 0;
         bzero(&msg, BUFF_SIZE);
 
         do{
@@ -164,10 +166,19 @@ int playGame(playerData *playerList, int numb)
         }
 
         isValid = checkValidInput(msg);
+            if (isValid)
+            {
+                if (data.map[0][atoi(msg)] != 0)
+                {
+                    isValid = 0;
+                }
+            }
 
+            printf("Valid from A: %s -> %d \n",msg, isValid);
+            fflush(stdout);
             //printf("isvalid : %d\n", isValid);
 
-        if ((write(playerOne.client_desc, &isValid, BUFF_SIZE)) < 0)
+        if ((write(playerOne.client_desc, &isValid, sizeof(isValid))) < 0)
         {
             perror("Error wr to clt a desc\n");
             return errno;
@@ -185,8 +196,9 @@ int playGame(playerData *playerList, int numb)
             return errno;
         }
         bzero(&msg, BUFF_SIZE);
-        do{
 
+        do{
+        bzero(&msg, sizeof(msg));
         if ((bytes = read(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
         {
             perror("Error reading from clt b desc\n");
@@ -207,10 +219,17 @@ int playGame(playerData *playerList, int numb)
             }
 
             isValid = checkValidInput(msg);
+            if (isValid)
+            {
+                if (data.map[0][atoi(msg)] != 0)
+                {
+                    isValid = false;
+                }
+            }
 
-            //printf("isvalid : %d\n", isValid);
-
-            if ((write(playerOne.client_desc, &isValid, BUFF_SIZE)) < 0)
+            printf("Valid from B: %s -> %d \n",msg, isValid);
+            fflush(stdout);
+            if ((write(playerTwo.client_desc, &isValid, sizeof(isValid))) < 0)
             {
                 perror("Error wr to clt a desc\n");
                 return errno;
