@@ -9,7 +9,7 @@
 
 static int *nr_clients;
 
-void child_exiting_handler(pipes *p, int serv_desc, int clt_desc, bool isError)
+void child_exiting_handler(playerData *p, int serv_desc, int clt_desc, bool isError)
 {
     if (isError == true)
     {
@@ -25,85 +25,15 @@ void child_exiting_handler(pipes *p, int serv_desc, int clt_desc, bool isError)
 
 }
 
-int simulate_clientAB(pipes *playerList, int numb)
-{
-    pipes cltA = playerList[numb -1];
-    pipes cltB = playerList[numb];
 
-    unsigned char msg[BUFF_SIZE] = "Welcome to Connect4\nYou start!\n";
-
-    if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-    {
-        perror("Error writing to clt a desc\n");
-        return errno;
-    }
-    ssize_t bytes;
-    while(1)
-    {
-        bzero(&msg, BUFF_SIZE);
-
-        if ((bytes = read(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt a desc\n");
-            return errno;
-        }
-
-        if (bytes == 0)
-        {
-            printf("Client A has disconnected!\n");
-            bzero(&msg, sizeof(msg));
-            strcpy((char *) msg, "DISCONNECTED");
-            if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-            {
-                perror("Error writing to clt b desc\n");
-                return errno;
-            }
-            return 0;
-        }
-
-        if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to clt b desc\n");
-            return errno;
-        }
-
-        if ((bytes = read(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt b desc\n");
-            return errno;
-        }
-
-        if (bytes == 0)
-        {
-            printf("Client B has disconnected!\n");
-            bzero(&msg, sizeof(msg));
-            strcpy((char *) msg, "DISCONNECTED");
-            if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-            {
-                perror("Error writing to clt b desc\n");
-                return errno;
-            }
-            return 0;
-        }
-
-
-        if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to clt a desc\n");
-            return errno;
-        }
-
-    }
-
-
-}
 
 
 int main()
 {
+
     int server_descriptor,client_descriptor,len;
     struct sockaddr_in serv,cli;
-    struct pipes pipe_handler[100];
+    playerData playerList[1000];
     pid_t pid;
     int optval=1; //opt for setsocketopt()
     nr_clients = mmap(NULL, sizeof *nr_clients, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -124,7 +54,6 @@ int main()
     serv.sin_family = AF_INET;
     serv.sin_addr.s_addr = htonl(INADDR_ANY); //127.0.0.1
     serv.sin_port=htons(PORT); //5000
-
 
 
     if ((bind(server_descriptor,(struct sockaddr*)&serv,sizeof(serv))) == -1)
@@ -154,15 +83,10 @@ int main()
 
         *nr_clients = *nr_clients + 1;
         printf("nr clts %d\n", *nr_clients);
-        //nr[0] = nr[0] + 1;
 
-        pipe_handler[*nr_clients].client_desc = client_descriptor;
-        pipe_handler[*nr_clients].isInUse = 1;
-        pipe_handler[*nr_clients].client_id = (*nr_clients);
-        strcpy(pipe_handler[*nr_clients].buffer, "Saloooot");
+        playerList[*nr_clients].client_desc = client_descriptor;
 
-
-        if ((write(client_descriptor, &pipe_handler[*nr_clients], BUFF_SIZE)) < 0)
+        if ((write(client_descriptor, &client_descriptor, BUFF_SIZE)) < 0)
         {
             perror("Error writing to clt desc\n");
             return errno;
@@ -181,17 +105,17 @@ int main()
 
             if(pid == 0)
             {
-                simulate_clientAB(pipe_handler, *nr_clients);
+                playGame(playerList, *nr_clients);
 
-                child_exiting_handler(&pipe_handler[*nr_clients], server_descriptor, client_descriptor, false);
+                child_exiting_handler(&playerList[*nr_clients], server_descriptor, client_descriptor, false);
 
                 *nr_clients = *nr_clients - 2;
                 exit(0);
             }
             else //is parent
             {
-                close(pipe_handler[*nr_clients].client_desc);
-                close(pipe_handler[*nr_clients - 1].client_desc);
+                close(playerList[*nr_clients].client_desc);
+                close(playerList[*nr_clients - 1].client_desc);
             }
 
 
@@ -221,189 +145,3 @@ Maybe share all the array of structs so when a client disconnects updates the fi
  Comenzi la client
  Inceperea jocului
  */
-/*
- int communicate_with_partner(pipes *pipe_handler)
-{
-    pipes client_2;
-    char msg[BUFF_SIZE] = " ... \n";
-    int bytes = -1;
-    int *pip;
-    if (*nr_clients % 2 == 0)
-    {
-        pip = pipe_handler[*nr_clients + 1].pipe_desc;
-        if ( read(pip[0], &client_2, BUFF_SIZE) < 0)
-        {
-            child_exiting_handler(&pipe_handler[*nr_clients], 0, 0, true);
-            printf("Child process killed by error from pipe with PID = %d\n", getpid());
-            exit(0);
-        }
-
-        printf("connected \n");
-    } else{
-        if (*nr_clients % 2 == 1)
-        {
-            pip = pipe_handler[*nr_clients].pipe_desc;
-            //printf("%d I'm looking for partner.. \n", pipe_handler[*nr_clients].pipe_number);
-
-            if ( write(pip[1], pipe_handler, BUFF_SIZE) < 0)
-            {
-                child_exiting_handler(&pipe_handler[*nr_clients], 0, 0, true);
-                printf("Child process killed by error from pipe with PID = %d\n", getpid());
-                exit(0);
-            }
-
-        }
-
-    }
-
-    do{
-        bzero(&msg, BUFF_SIZE);
-
-    }while(bytes > 0);
-    printf("Bytes = %d\n", bytes);
-
-    //child_exiting_handler(pipe_handler, 0, clt_desc, false);
-    bzero(&pipe_handler, sizeof(pipe_handler));
-    return bytes;
-}
-
-int str_echo(int clt_desc, pipes *pipe_handler)
-{
-    int bytes;          //numarul de octeti cititi/scrisi
-    unsigned char msg[BUFF_SIZE];       //mesajul primit de la client
-    bzero(msg, BUFF_SIZE);
-
-    do{
-        bytes = (int) read (clt_desc, msg, BUFF_SIZE);
-        if (bytes < 0)
-        {
-            perror ("Error reading from client()\n");
-            return errno;
-        }
-
-        if (bytes == 0 )
-        {
-            printf("[SYSTEM] Client[%d] has disconnected.\n", pipe_handler->client_id);
-            return bytes;
-        }
-
-        printf ("Client[%d]: %s\n", pipe_handler->client_id, msg);
-        fflush (stdout);
-
-        if (write (clt_desc, msg, (size_t) bytes) < 0)
-        {
-            perror ("Error writing to client()\n");
-            return errno;
-        }
-
-
-    }while(bytes > 0);
-    printf("Bytes = %d\n", bytes);
-
-    child_exiting_handler(pipe_handler, 0, clt_desc, false);
-    bzero(&pipe_handler, sizeof(pipe_handler));
-    return bytes;
-}
-int client_A_handler(pipes *players)
-{
-    pipes cltA = players[*nr_clients];
-    int *pip = players[*nr_clients + 1].pipe_desc;
-    ssize_t bytes = -1;
-    char msg[BUFF_SIZE] = "Client A\n";
-
-    printf("A: p0 p1 %d %d\n", pip[0], pip[1]);
-
-    if ((read(pip[0], &msg, BUFF_SIZE)) < 0)
-    {
-        perror("Error reading from pipe\n");
-        return errno;
-    }
-    printf("clt a: read from pipe %s\n", msg);
-
-
-    do{
-        //bzero(&msg, BUFF_SIZE);
-        if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to clt a desc\n");
-            return errno;
-        }
-        if ((read(cltA.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt a desc\n");
-            return errno;
-        }
-
-
-        printf("clt a said: %s", msg);
-        fflush(stdout);
-
-        if ((write(pip[1], msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to pipe\n");
-            return errno;
-        }
-
-        if ((bytes = read(pip[0], msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from pipe\n");
-            return errno;
-        }
-
-
-
-
-    } while (bytes);
-    return 0;
-
-}
-int client_B_handler(pipes *players)
-{
-    pipes cltB = players[*nr_clients];
-    int *pip = players[*nr_clients].pipe_desc;
-    ssize_t bytes = -1;
-
-    char msg[BUFF_SIZE] = "Insert message: \n";
-    printf("B: p0 p1 %d %d\n", pip[0], pip[1]);
-    if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-    {
-        perror("Error writing to clt b desc\n");
-        return errno;
-    }
-
-    do{
-        // bzero(&msg, BUFF_SIZE);
-        if ((read(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt b desc\n");
-            return errno;
-        }
-        if ((write(pip[1], msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to pipe\n");
-            return errno;
-        }
-
-        // sleep(3);
-        if ((bytes = read(pip[0], msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from pipe\n");
-            return errno;
-        }
-        printf("b: msg dupa read pipe 0 : %s\n" , msg);
-        if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error writing to clt b desc\n");
-            return errno;
-        }
-        printf("clt b  answered : %s", msg);
-        fflush(stdout);
-
-        //printf("cl b = %s ", msg);
-
-
-
-    } while (bytes);
-    return 0;
-}
-*/

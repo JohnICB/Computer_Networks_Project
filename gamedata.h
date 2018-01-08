@@ -15,33 +15,28 @@
 
 #define BUFF_SIZE 1024
 #define PORT 5000
+#define NAME_SIZE 15
 #define HEIGHT 8
 #define WIDTH 8
 
-typedef struct pipes pipes;
+
 typedef struct gameData gameData;
+typedef struct playerData playerData;
+typedef struct pair pair;
 
-struct pipes
+struct playerData
 {
-    char buffer[100];
+    char oponnent_name[BUFF_SIZE];
     int client_desc;
-    int client_id;
-
-    bool isInUse;
 };
 
-struct gameData
+struct pair
 {
-    int client_desc;
-
+    char message[BUFF_SIZE];
     char map[HEIGHT][WIDTH];
-    int score_A;
-    int score_B;
-    char symbol_A;
-    char symbol_B;
 };
 
-void update_map( gameData *game_data, short pos, bool isPlayerA);
-
+void update_map( pair *game_data, int pos, char symbol);
+int playGame(playerData *playerList, int numb);
 
 #endif //UNTITLED_GAMEDATA_H

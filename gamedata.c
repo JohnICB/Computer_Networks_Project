@@ -4,7 +4,7 @@
 
 #include "gamedata.h"
 
-void update_map( gameData *game_data, short pos, bool isPlayerA)
+void update_map( pair *game_data, int pos, char symbol)
 {
     if (game_data == NULL)
     {
@@ -19,50 +19,143 @@ void update_map( gameData *game_data, short pos, bool isPlayerA)
     }
 
     for (int i = -1; i < HEIGHT; ++i) {
-        if (game_data->map[i+1][pos] != 0)
+        if (game_data->map[i+1][pos] == 0 && i + 1 != HEIGHT)
         {
-            if (isPlayerA)
-            {
-                game_data->map[i][pos] = game_data->symbol_A;
-            } else
-                game_data->map[i][pos] = game_data->symbol_B;
+            printf(" is empty %d \n", game_data->map[i][pos]);
+            continue;
+            //return;
+        }
+        else
+        {
+            game_data->map[i][pos] = symbol;
             break;
         }
     }
 
+    for (int i = 0; i < HEIGHT; ++i)
+    {
+        for (int j = 0; j < WIDTH; ++j)
+        {
+            if(game_data->map[i][j] != 0)
+            {
+                printf("| %c |", game_data->map[i][j]);
+            }
+            else
+            {
+                printf("|   |");
+            }
+        }
+        printf("\n-------------------------------\n");
+    }
+        
+
+
 }
-
-int play_game(gameData *playerList, int numb)
+bool checkValidInput(const char *input)
 {
-   // int numb = *nr_clients;
-    gameData cltA = playerList[numb -1];
-    gameData cltB = playerList[numb];
 
-    unsigned char msg[BUFF_SIZE] = "";
+    printf("%d - %s\n", (int) strlen(input), input);
+    bool ok = true;
+    //printf("%s is valid \n", input);
+    fflush(stdout);
 
-    if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
+    if (atoi(input) < 0 || atoi(input) > 8)
+    {
+        printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
+        return false;
+    }
+
+    for (int i = 0; i < strlen(input) - 1; ++i)
+    {
+        if (input[i] < '0' || input[i] > '9')
+        {
+            if(input[i] == ' ')
+            {
+                ok = false;
+                continue;
+            }
+
+            printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
+            return false;
+        }
+        else if(ok == false)
+        {
+            printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
+            return false;
+        }
+    }
+
+
+    return true;
+}
+int playGame(playerData *playerList, int numb)
+{
+    playerData playerOne = playerList[numb -1];
+    playerData playerTwo = playerList[numb];
+
+    pair data;
+    bzero(&data, sizeof(data));
+
+    ssize_t bytes;
+
+    char msg[BUFF_SIZE] = "";
+    //*
+    //read from A his name
+    if ((read(playerOne.client_desc, msg, BUFF_SIZE)) < 0)
+    {
+        perror("Error reading NAME from clt a desc\n");
+        return errno;
+    }
+    strcpy(playerTwo.oponnent_name, (const char *) msg);
+
+    //read from B his name
+    if ((read(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
+    {
+        perror("Error reading NAME from clt a desc\n");
+        return errno;
+    }
+    strcpy(playerOne.oponnent_name, (const char *) msg);
+
+    printf("A: %s\nB: %s\n", playerTwo.oponnent_name, playerOne.oponnent_name);
+// */
+
+    //write to A name of B
+    if ((write(playerOne.client_desc, playerOne.oponnent_name, BUFF_SIZE)) < 0) //just a signal
     {
         perror("Error writing to clt a desc\n");
         return errno;
     }
-    ssize_t bytes;
+    //write to B name of A
+    if ((write(playerTwo.client_desc, playerTwo.oponnent_name, BUFF_SIZE)) < 0) //just a signal
+    {
+        perror("Error writing to clt a desc\n");
+        return errno;
+    }
+
+    if ((write(playerOne.client_desc, msg, BUFF_SIZE)) < 0) //just a signal
+    {
+        perror("Error writing to clt a desc\n");
+        return errno;
+    }
 
     while(1)
     {
+        bool isValid = 0;
         bzero(&msg, BUFF_SIZE);
 
-        if ((bytes = read(cltA.client_desc, msg, BUFF_SIZE)) < 0)
+        do{
+
+        if ((bytes = read(playerOne.client_desc, msg, BUFF_SIZE)) < 0)
         {
             perror("Error reading from clt a desc\n");
             return errno;
         }
-
         if (bytes == 0)
         {
             printf("Client A has disconnected!\n");
             bzero(&msg, sizeof(msg));
             strcpy((char *) msg, "DISCONNECTED");
-            if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
+            if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
             {
                 perror("Error writing to clt b desc\n");
                 return errno;
@@ -70,33 +163,68 @@ int play_game(gameData *playerList, int numb)
             return 0;
         }
 
-        if ((write(cltB.client_desc, msg, BUFF_SIZE)) < 0)
+        isValid = checkValidInput(msg);
+
+            //printf("isvalid : %d\n", isValid);
+
+        if ((write(playerOne.client_desc, &isValid, BUFF_SIZE)) < 0)
+        {
+            perror("Error wr to clt a desc\n");
+            return errno;
+        }
+
+        }while(isValid == 0);
+
+        update_map(&data, atoi(msg), 'X'); //symbol a
+        bzero(data.message, sizeof(data.message));
+        strcpy(data.message, msg);
+
+        if ((write(playerTwo.client_desc, &data, BUFF_SIZE)) < 0) //HERE
         {
             perror("Error writing to clt b desc\n");
             return errno;
         }
+        bzero(&msg, BUFF_SIZE);
+        do{
 
-        if ((bytes = read(cltB.client_desc, msg, BUFF_SIZE)) < 0)
+        if ((bytes = read(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
         {
             perror("Error reading from clt b desc\n");
             return errno;
         }
 
-        if (bytes == 0)
-        {
-            printf("Client B has disconnected!\n");
-            bzero(&msg, sizeof(msg));
-            strcpy((char *) msg, "DISCONNECTED");
-            if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
+            if (bytes == 0)
             {
-                perror("Error writing to clt b desc\n");
+                printf("Client A has disconnected!\n");
+                bzero(&msg, sizeof(msg));
+                strcpy((char *) msg, "DISCONNECTED");
+                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
+                {
+                    perror("Error writing to clt b desc\n");
+                    return errno;
+                }
+                return 0;
+            }
+
+            isValid = checkValidInput(msg);
+
+            //printf("isvalid : %d\n", isValid);
+
+            if ((write(playerOne.client_desc, &isValid, BUFF_SIZE)) < 0)
+            {
+                perror("Error wr to clt a desc\n");
                 return errno;
             }
-            return 0;
-        }
+
+        }while(isValid == 0);
 
 
-        if ((write(cltA.client_desc, msg, BUFF_SIZE)) < 0)
+        update_map(&data, atoi(msg), 'O'); //symbol b
+
+        bzero(data.message, sizeof(data.message));
+        strcpy(data.message, msg);
+
+        if ((write(playerOne.client_desc, &data, BUFF_SIZE)) < 0)
         {
             perror("Error writing to clt a desc\n");
             return errno;
