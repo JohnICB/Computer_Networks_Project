@@ -30,13 +30,23 @@ struct playerData
     int client_desc;
 };
 
+
+
 struct pair
 {
     char message[BUFF_SIZE];
     char map[HEIGHT][WIDTH];
+    int result;
+};
+
+struct inputHelper
+{
+    char message[BUFF_SIZE];
+    bool isValid;
 };
 
 void update_map( pair *game_data, int pos, char symbol);
 int playGame(playerData *playerList, int numb);
+//int checkWin(char **map);
 
 #endif //UNTITLED_GAMEDATA_H

@@ -33,6 +33,7 @@ struct pair
 {
     char message[BUFF_SIZE];
     char map[HEIGHT][WIDTH];
+    int result;
 };
 
 
@@ -72,36 +73,89 @@ int main()
 }
 void menu();
 
-void getPlayerInput(char *input, size_t size, int server_fd)
+int getPlayerInput(char *input, size_t size, int server_fd)
 {
 	int isValid = 0;
+	int score[2];
 	do{
 		bzero(input,  size);
 		isValid = 0;
 		if ((read(0, input, size)) < 0)
         {
             perror ("Error reading from stdin\n");
-            return;
+            return -1;
         }
+        if (strcmp(input, "/quit\n") == 0)
+		{
+			printf("Thanks for playing! Exiting now..\n");
+			return 1;
+		}
 
         if (write (server_fd, input, BUFF_SIZE) < 0)
 		{
 			perror ("Error while writing to the Server.\n");
-			return;
+			return -1;
 		}
-		 printf("Before read: %d\n", isValid);
+
+		 if (strcmp(input, "/score\n") == 0)
+		{
+			if ((read(server_fd, &score, sizeof(score))) < 0)
+        	{
+          	  perror ("Error reading from server\n");
+          	  return -1;
+       		}
+
+       		printf("Score is: \nYou: %d     Your Opponent: %d\n", score[0], score[1] );
+       		fflush(stdout);
+       		continue;
+		}
+
+		//printf("Before read: %d\n", isValid);
 		if ((read(server_fd, &isValid, sizeof(int))) < 0)
         {
             perror ("Error reading from server\n");
-            return;
+            return -1;
         }
 
-        printf("Had raed: %d\n", isValid);
+        if (isValid == 1)
+        {
+        	printf("You should only input numbers between 1 and 8!\n~Try Again!~\nYou: ");
+        }
+        else if (isValid == 2)
+        {
+        	printf("The column is already full!\n~Try Again!~\nYou: ");
+        }
+        else if (isValid != 0)
+        {
+        	printf("Unknown Error!\n~Try Again!~\nYou: ");
+        }
+        //printf("Had raed: %d\n", isValid);
         fflush(stdout);
 
-	}while(isValid == 0);
-}
+	}while(isValid != 0);
 
+	return 0;
+}
+void printMap(char map[][HEIGHT])
+{
+	for (int i = 0; i < WIDTH; ++i)
+    {
+        for (int j = 0; j < HEIGHT; ++j)
+        {
+            if(map[i][j] != 0)
+            {
+                printf("| %c |", map[i][j]);
+            }
+            else
+            {
+                printf("|   |");
+            }
+              //printf("| %d |", map[i][j]);
+        }
+        printf("\n---------------------------------------\n");
+    }
+    fflush(stdout);
+}
 int client_A_Handler(int server_fd, char oponnent_name[15])
 {
 	fflush(stdout);
@@ -122,42 +176,64 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		printf("It's Your turn\nYou: ");
 		fflush(stdout);
 
-		getPlayerInput(buf, BUFF_SIZE, server_fd);
-		//put this in a fcuntiion
-		//checkSpecialInput(buf, BUFF_SIZE);
-		//if (strcmp(buf, "/quit") == 0)
-		//{
-		//	printf("Thanks for playing! Exiting now..\n");
-		//	return 1;
-		//}
-		//TODO: add more commands
-		//if (write (server_fd, (buf), BUFF_SIZE) < 0)
-		//{
-		//	perror ("Error while writing to the Server.\n");
-		//	return errno;
-		//}
+		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
+		{
+			return 1;
+		}
 
-		//read bool if  correct
+
+		fflush(stdout);
+
+		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
+		{
+			perror ("Error reading from stdin\n");
+			return errno;
+		}
+		if (bytes == 0)
+		{
+			printf("Lost connection to the server... \nReconnecting..\n");
+			fflush(stdout);
+			return 0;
+		}
+		if (strcmp(buf, "DISCONNECTED") == 0)
+		{
+			printf("Opponent has dissconnected..\nReconnecting..\n");
+			return 0;
+		}
+		printMap(data.map);
+		if (data.result != 0)
+		{
+			printf("YOU WON!! \n");
+			fflush(stdout);
+		}
 
 		bzero(buf, BUFF_SIZE);
 		printf("It's %s's turn\n", oponnent_name);
 		fflush(stdout);
 		bzero(&data, sizeof(data));
-		if ((bytes = read(server_fd, &data, BUFF_SIZE)) < 0)
+		fflush(stdout);
+		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
 		{
 			perror ("Error reading from stdin\n");
 			return errno;
 		}
-
-		//put this in a function
-		//if (strcmp(buf, "DISCONNECTED") == 0)
-		//{
-		//	printf("Opponent has dissconnected..\nReconnecting..\n");
-		//	return 0;
-		//}
-		//printf("%s: %s\n",oponnent_name, buf);
-		//printMap(map);
-		//bzero(&map, sizeof(map));
+		if (bytes == 0)
+		{
+			printf("Lost connection to the server... \nReconnecting..\n");
+			fflush(stdout);
+			return 0;
+		}
+		if (strcmp(buf, "DISCONNECTED") == 0)
+		{
+			printf("Opponent has dissconnected..\nReconnecting..\n");
+			return 0;
+		}
+		printMap(data.map);
+		if (data.result != 0)
+		{
+			printf("YOUR OPPONENT WON!! \n");
+			fflush(stdout);
+		}
 		fflush(stdout);
 
 
@@ -179,15 +255,16 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		printf("It's %s's turn\n", oponnent_name);
 		fflush(stdout);
 
-		if ((bytes = read(server_fd, &data, BUFF_SIZE)) < 0)
+		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
 		{
 			perror ("Error reading from stdin\n");
 			return errno;
 		}
+		fflush(stdout);
 		if (bytes == 0)
 		{
 			printf("Lost connection to the server...\nWant to try to reconnect ? Y/N..\n");
-				///TODO: handle answer
+			///TODO: handle answer
 			return 0;
 		}
 		if (strcmp(data.message, "DISCONNECTED") == 0)
@@ -196,29 +273,34 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 			return 0;
 		}
 
-		//printf("%s: %s\n",oponnent_name, buf);
-		//printMap(map);
-		fflush(stdout);
+		printMap(data.map);
+		if (data.result != 0)
+		{
+			printf("YOU WON!! \n");
+			fflush(stdout);
+		}
 
 		bzero(buf, BUFF_SIZE);
 		printf("It's Your turn\nYou: ");
 		fflush(stdout);
 
-		getPlayerInput(buf, BUFF_SIZE, server_fd);
-		//printf("cmp: %d\n",strcmp(buf, "/quit"));
-		//if (strcmp(buf, "/quit") == 0)
-		//{
-		//	printf("Thanks for playing! Exiting now..\n");
-		//	return 1;
-		//}
+		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
+		{
+			return 1;
+		}
 
-		//if (write (server_fd, buf, BUFF_SIZE) < 0)
-		//{
-		//	perror ("Error while writing to the Server.\n");
-		//	return errno;
-		//}
+		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
+		{
+			perror ("Error reading from stdin\n");
+			return errno;
+		}
 
-
+		printMap(data.map);
+		if (data.result != 0)
+		{
+			printf("YOUR OPPONENT WON!! \n");
+			fflush(stdout);
+		}
 
 		}while(bytes > 0);
 }	

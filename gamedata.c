@@ -3,7 +3,37 @@
 //
 
 #include "gamedata.h"
+int checkWin(char map[][HEIGHT])
+{
 
+
+    //checks horizontal win
+    for(int i=0;i<WIDTH;i++)
+        for(int j=0;j<HEIGHT-3;j++)
+            if(map[i][j] != 0 && map[i][j]==map[i][j+1] && map[i][j]==map[i][j+2] && map[i][j]==map[i][j+3])
+                return 1;
+
+    //checks vertical win
+    for(int i=0;i<WIDTH-3;i++)
+        for(int j=0;j<HEIGHT;j++)
+            if(map[i][j] != 0 && map[i][j]==map[i+1][j] && map[i][j]==map[i+2][j] && map[i][j]==map[i+3][j])
+                return 2;
+
+    //checks right diagonal win
+    for(int i=0;i<WIDTH-3;i++)
+        for(int j=0;j<HEIGHT-3;j++)
+            if(map[i][j] != 0 && map[i][j]==map[i+1][j+1] && map[i][j]==map[i+2][j+2] && map[i][j]==map[i+3][j+3])
+                return 3;
+
+    //checks left diagonal win
+    for(int i=0;i<WIDTH-3;i++)
+        for(int j=0;j<HEIGHT-3;j++)
+            if(map[i][j] != 0 && map[i][j]==map[i+1][j-1] && map[i][j]==map[i+2][j-2] && map[i][j]==map[i+3][j-3])
+                return 4;
+
+    return 0;
+
+}
 void update_map( pair *game_data, int pos, char symbol)
 {
     if (game_data == NULL)
@@ -22,7 +52,7 @@ void update_map( pair *game_data, int pos, char symbol)
     for (int i = -1; i < HEIGHT; ++i) {
         if (game_data->map[i+1][pos] == 0 && i + 1 != HEIGHT)
         {
-            printf(" is empty %d \n", game_data->map[i][pos]);
+           // printf(" is empty %d \n", game_data->map[i][pos]);
             continue;
             //return;
         }
@@ -46,7 +76,7 @@ void update_map( pair *game_data, int pos, char symbol)
                 printf("|   |");
             }
         }
-        printf("\n-------------------------------\n");
+        printf("\n-----------------------------------------\n");
     }
         
 
@@ -54,16 +84,12 @@ void update_map( pair *game_data, int pos, char symbol)
 }
 int checkValidInput(const char *input)
 {
-
-    //printf("%d - %s\n", (int) strlen(input), input);
     int ok = 1;
-    //printf("%s is valid \n", input);
-    fflush(stdout);
 
     if (atoi(input) < 0 || atoi(input) > 8)
     {
         printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-        return false;
+        return 1;
     }
 
     for (int i = 0; i < strlen(input) - 1; ++i)
@@ -77,24 +103,26 @@ int checkValidInput(const char *input)
             }
 
             printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-            return false;
+            return 1;
         }
         else if(ok == 0)
         {
             printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-            return 0;
+            return 1;
         }
     }
 
-
-
-    return 1;
+    return 0;
 }
 int playGame(playerData *playerList, int numb)
 {
     playerData playerOne = playerList[numb -1];
     playerData playerTwo = playerList[numb];
 
+    int scoreKeeper[2] = {0,0};
+
+    //int nrOfMoves = 0;
+//
     pair data;
     bzero(&data, sizeof(data));
 
@@ -142,7 +170,7 @@ int playGame(playerData *playerList, int numb)
 
     while(1)
     {
-        int isValid = 0;
+        int isValid = 3;
         bzero(&msg, BUFF_SIZE);
 
         do{
@@ -165,12 +193,24 @@ int playGame(playerData *playerList, int numb)
             return 0;
         }
 
-        isValid = checkValidInput(msg);
+            if (strcmp(msg, "/score\n") == 0)
+            {
+                if ((write(playerOne.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0)
+                {
+                    perror("Error wr to clt a desc\n");
+                    return errno;
+                }
+                printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[0], scoreKeeper[1] );
+                fflush(stdout);
+                continue;
+            }
+
+            isValid = checkValidInput(msg);
             if (isValid)
             {
-                if (data.map[0][atoi(msg)] != 0)
+                if (data.map[0][atoi(msg)] != 0) //check if column is full
                 {
-                    isValid = 0;
+                    isValid = 2;
                 }
             }
 
@@ -184,18 +224,45 @@ int playGame(playerData *playerList, int numb)
             return errno;
         }
 
-        }while(isValid == 0);
+        }while(isValid != 0);
 
         update_map(&data, atoi(msg), 'X'); //symbol a
+
+        data.result = checkWin( data.map);
+        if (data.result != 0)
+        {
+            switch (data.result)
+            {
+                case 1:
+                case 2: scoreKeeper[0] += 10;
+                    break;
+                case 3:
+                case 4: scoreKeeper[0] +=15;
+                    break;
+                default:break;
+            }
+
+            data.result = 1;
+        }
+
         bzero(data.message, sizeof(data.message));
         strcpy(data.message, msg);
 
-        if ((write(playerTwo.client_desc, &data, BUFF_SIZE)) < 0) //HERE
+        if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {
             perror("Error writing to clt b desc\n");
             return errno;
         }
-        bzero(&msg, BUFF_SIZE);
+        if ((write(playerOne.client_desc, &data, sizeof(data))) < 0) //HERE
+        {
+            perror("Error writing to clt A desc\n");
+            return errno;
+        }
+
+        //printf("Result is : %d\n", result);
+
+
+        bzero(msg, BUFF_SIZE);
 
         do{
         bzero(&msg, sizeof(msg));
@@ -218,12 +285,24 @@ int playGame(playerData *playerList, int numb)
                 return 0;
             }
 
+            if (strcmp(msg, "/score\n") == 0)
+            {
+                if ((write(playerTwo.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0)
+                {
+                    perror("Error wr to clt a desc\n");
+                    return errno;
+                }
+                printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[1], scoreKeeper[0] );
+                fflush(stdout);
+                continue;
+            }
+
             isValid = checkValidInput(msg);
             if (isValid)
             {
                 if (data.map[0][atoi(msg)] != 0)
                 {
-                    isValid = false;
+                    isValid = 3;
                 }
             }
 
@@ -235,19 +314,47 @@ int playGame(playerData *playerList, int numb)
                 return errno;
             }
 
-        }while(isValid == 0);
+        }while(isValid != 0);
 
 
         update_map(&data, atoi(msg), 'O'); //symbol b
+        data.result = checkWin(data.map);
+        data.result = checkWin( data.map);
+        if (data.result != 0)
+        {
+            switch (data.result)
+            {
+                case 1:
+                case 2: scoreKeeper[1] += 10;
+                    break;
+                case 3:
+                case 4: scoreKeeper[1] +=15;
+                    break;
+                default:break;
+            }
+
+            data.result = 2;
+        }
 
         bzero(data.message, sizeof(data.message));
         strcpy(data.message, msg);
 
-        if ((write(playerOne.client_desc, &data, BUFF_SIZE)) < 0)
+
+        if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {
-            perror("Error writing to clt a desc\n");
+            perror("Error writing to clt b desc\n");
             return errno;
         }
+        if ((write(playerOne.client_desc, &data, sizeof(data))) < 0) //HERE
+        {
+            perror("Error writing to clt A desc\n");
+            return errno;
+        }
+
+        //printf("Result 2 is : %d\n", result);
+
+
+
 
     }
 
