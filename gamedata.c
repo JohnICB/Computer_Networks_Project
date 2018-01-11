@@ -42,6 +42,8 @@ void update_map( pair *game_data, int pos, char symbol)
         return;
     }
 
+    --pos;
+
     if (game_data->map[0][pos] != 0)
     {
          printf("Column already full\n");
@@ -174,7 +176,8 @@ int playGame(playerData *playerList, int numb)
         bzero(&msg, BUFF_SIZE);
 
         do{
-
+            isValid = 3;
+            bzero(&msg, BUFF_SIZE);
         if ((bytes = read(playerOne.client_desc, msg, BUFF_SIZE)) < 0)
         {
             perror("Error reading from clt a desc\n");
@@ -202,6 +205,7 @@ int playGame(playerData *playerList, int numb)
                 }
                 printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[0], scoreKeeper[1] );
                 fflush(stdout);
+                isValid = 5;
                 continue;
             }
 
@@ -259,12 +263,19 @@ int playGame(playerData *playerList, int numb)
             return errno;
         }
 
+
+        if (data.result != 0)
+        {
+            //read answer from both clients if they want to play again
+        }
+
         //printf("Result is : %d\n", result);
 
 
         bzero(msg, BUFF_SIZE);
 
         do{
+            isValid = 3;
         bzero(&msg, sizeof(msg));
         if ((bytes = read(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
         {
@@ -294,11 +305,12 @@ int playGame(playerData *playerList, int numb)
                 }
                 printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[1], scoreKeeper[0] );
                 fflush(stdout);
+                isValid = 5;
                 continue;
             }
 
             isValid = checkValidInput(msg);
-            if (isValid)
+            if (isValid > 0)
             {
                 if (data.map[0][atoi(msg)] != 0)
                 {

@@ -26,6 +26,7 @@ typedef struct pair pair;
 struct playerData
 {
     char oponnent_name[NAME_SIZE];
+    char name[NAME_SIZE];
     int client_desc;
 };
 
@@ -36,16 +37,30 @@ struct pair
     int result;
 };
 
+playerData p_data;
+
 
 int str_echo(int server_fd); //takes care of the communication
+int getMenuInput();
+void printHelp();
 int main()
 {
+	strcpy(p_data.name, "");
+	strcpy(p_data.oponnent_name, "");
+	p_data.client_desc = -1;
+
 	int server_fd;
 	struct sockaddr_in server;
 	int answer = 0;
 	/*creating socket*/
+
+	printf("Welcome to Connect 4!\n");
+	fflush(stdout);
+
 	while (answer == 0)
 	{
+		if (getMenuInput() == 1)
+		{
 		if ( (server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1)
 		{
 			perror ("Error creating socket()\n");
@@ -58,21 +73,71 @@ int main()
 		server.sin_addr.s_addr=inet_addr("127.0.0.1");
 		server.sin_port=htons(5000);
 
-		/*connecting to server*/
-		if (connect (server_fd, (struct sockaddr *) &server,sizeof (struct sockaddr)) == -1)
-		{
-			perror ("Error connecting()\n");
-			return errno;
-		}
+			/*connecting to server*/
+			if (connect (server_fd, (struct sockaddr *) &server,sizeof (struct sockaddr)) == -1)
+			{
+				perror ("Error connecting()\n");
+				return errno;
+			}
 
-		answer = str_echo(server_fd); //communication takes place here
+			answer = str_echo(server_fd); //communication takes place here
+		}
+		else
+		{
+			close(server_fd);
+			return 0;
+		}
 
 		close(server_fd);
 	}
 	return 0;
 }
-void menu();
+void printHelp()
+{
+	printf("Hi! You have to fill a matrix with pices, The pieces fall straight down, occupying the next available space within the column.\nThe objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own pices\nTo chose the column, input it's number from 1 to 8.\nWhile playing, you can type /quit to quit the game\n/score to see the score\n");
+	fflush(stdout);
+}
+int getMenuInput()
+{
+	char input[BUFF_SIZE];
+	do{
+		bzero(input,  sizeof(input));
+		printf("Insert:\n1 To Play\n2 To Quit\n/help for help\n");
+		printf("You: ");
+		fflush(stdout);
+		if ((read(0, input, sizeof(input))) < 0)
+        {
+            perror ("Error reading from stdin\n");
+            return -1;
+        }
 
+        if (strcmp(input, "1\n") == 0)
+		{
+			return 1;
+		}
+        else if (strcmp(input, "2\n") == 0)
+		{
+			printf("Thanks for playing! Exiting now..\n");
+			fflush(stdout);
+			return 2;
+		}
+		else if (strcmp(input, "/help\n") == 0)
+		{
+			printHelp();
+			printf("Try again\n");
+			fflush(stdout);
+		}
+		else 
+		{
+			printf("Invalid input, /help for help and rules\n");
+			fflush(stdout);
+		}
+
+
+	}while(1);
+
+	return 0;
+}
 int getPlayerInput(char *input, size_t size, int server_fd)
 {
 	int isValid = 0;
@@ -80,6 +145,8 @@ int getPlayerInput(char *input, size_t size, int server_fd)
 	do{
 		bzero(input,  size);
 		isValid = 0;
+		printf("You: ");
+		fflush(stdout);
 		if ((read(0, input, size)) < 0)
         {
             perror ("Error reading from stdin\n");
@@ -107,10 +174,11 @@ int getPlayerInput(char *input, size_t size, int server_fd)
 
        		printf("Score is: \nYou: %d     Your Opponent: %d\n", score[0], score[1] );
        		fflush(stdout);
+       		isValid = 5;
        		continue;
 		}
 
-		//printf("Before read: %d\n", isValid);
+
 		if ((read(server_fd, &isValid, sizeof(int))) < 0)
         {
             perror ("Error reading from server\n");
@@ -119,15 +187,15 @@ int getPlayerInput(char *input, size_t size, int server_fd)
 
         if (isValid == 1)
         {
-        	printf("You should only input numbers between 1 and 8!\n~Try Again!~\nYou: ");
+        	printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
         }
         else if (isValid == 2)
         {
-        	printf("The column is already full!\n~Try Again!~\nYou: ");
+        	printf("The column is already full!\n~Try Again!~\n");
         }
         else if (isValid != 0)
         {
-        	printf("Unknown Error!\n~Try Again!~\nYou: ");
+        	printf("Invalid Input. /help for help and rules!\n~Try Again!~\n");
         }
         //printf("Had raed: %d\n", isValid);
         fflush(stdout);
@@ -162,18 +230,21 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 	pair data;
 	char buf[BUFF_SIZE];
 	ssize_t bytes;
+
 	if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0) //signal that the other client has connected
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
+	bzero(&data, sizeof(data));
+	printMap(data.map);
 	printf("You are playing agasint %s!\nYou start!\n", oponnent_name);
 
 	do{
 		
 		bzero(buf, BUFF_SIZE);
 		int input = -1;
-		printf("It's Your turn\nYou: ");
+		printf("It's Your turn\n");
 		fflush(stdout);
 
 		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
@@ -201,9 +272,14 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 			return 0;
 		}
 		printMap(data.map);
-		if (data.result != 0)
+		if (data.result == 1)
 		{
-			printf("YOU WON!! \n");
+			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");
+			fflush(stdout);
+		}
+		else if (data.result == 2)
+		{
+			printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", oponnent_name);
 			fflush(stdout);
 		}
 
@@ -229,9 +305,14 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 			return 0;
 		}
 		printMap(data.map);
-		if (data.result != 0)
+		if (data.result == 1)
 		{
-			printf("YOUR OPPONENT WON!! \n");
+			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
+			fflush(stdout);
+		}
+		else if (data.result == 2)
+		{
+			printf("YOUR OPPONENT WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
 			fflush(stdout);
 		}
 		fflush(stdout);
@@ -245,9 +326,9 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 	char buf[BUFF_SIZE];
 	pair data;
 	ssize_t bytes;
-
-	printf("You are playing against %s!\n You start second!\n", oponnent_name);
-	fflush(stdout);
+	bzero(&data, sizeof(data));
+	printMap(data.map);
+	printf("You are playing against %s!\nYou start second!\n", oponnent_name);
 
 	do{
 		bzero(buf, BUFF_SIZE);
@@ -274,14 +355,22 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		}
 
 		printMap(data.map);
-		if (data.result != 0)
+		if (data.result == 2)
 		{
-			printf("YOU WON!! \n");
+			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n");
 			fflush(stdout);
+
+			//read answer, transmit to server
+		}
+		else if (data.result == 1)
+		{
+			printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", oponnent_name);
+			fflush(stdout);
+			//read answer, transmit to server
 		}
 
 		bzero(buf, BUFF_SIZE);
-		printf("It's Your turn\nYou: ");
+		printf("It's Your turn\n");
 		fflush(stdout);
 
 		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
@@ -296,10 +385,19 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		}
 
 		printMap(data.map);
-		if (data.result != 0)
+		if (data.result == 2)
 		{
-			printf("YOUR OPPONENT WON!! \n");
+			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
 			fflush(stdout);
+
+			//read answer, transmit to server
+		}
+		else if (data.result == 1)
+		{
+			printf("YOUR OPPONENT WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
+			fflush(stdout);
+
+			//read answer, transmit to server
 		}
 
 		}while(bytes > 0);
@@ -347,48 +445,46 @@ int str_echo(int server_fd)
 	int sz = 1; //bytes size
 	bzero(&buf, BUFF_SIZE);
 	int cl_number;
-	playerData data;
 
-	printf("Welcome to Connect 4!\n");
-	fflush(stdout);
-	
 	if ((bytes = read(server_fd, &cl_number, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
-	data.client_desc = cl_number;
+	p_data.client_desc = cl_number;
 
-	inputPlayerName(buf, strlen(buf));
+	//printf(".%s, %d \n",p_data.name, strcmp(p_data.name, "") );
+	if (strcmp(p_data.name, "") == 0)
+	{
+		inputPlayerName(buf, strlen(buf));
+		strcpy(p_data.name, buf);
+	}
 
-	printf("Waiting for other player..\n");
+	printf("Looking for other player..\n");
 	fflush(stdout);
 
-	//printf("playing versus %s\n", data.oponnent_name);
-	//TODO: Insert name
 	if ((write(server_fd, buf, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
 
+	bzero(&buf, BUFF_SIZE);
+
 	if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
+	strcpy(p_data.oponnent_name, buf);
 
-	strcpy(data.oponnent_name, buf);
-
-	printf("Playing against %s!!\n", data.oponnent_name);
-
-	if (data.client_desc % 2 == 0)
+	if (p_data.client_desc % 2 == 0)
 	{
-		client_A_Handler(server_fd, data.oponnent_name);
+		return client_A_Handler(server_fd, p_data.oponnent_name);
 	}
 	else
 	{
-		client_B_Handler(server_fd, data.oponnent_name);
+		return client_B_Handler(server_fd, p_data.oponnent_name);
 	}
 }
 
