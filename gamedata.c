@@ -122,6 +122,7 @@ int playGame(playerData *playerList, int numb)
     playerData playerTwo = playerList[numb];
 
     int scoreKeeper[2] = {0,0};
+    int answr[2] = {-1,-1};
 
     //int nrOfMoves = 0;
 //
@@ -267,6 +268,68 @@ int playGame(playerData *playerList, int numb)
         if (data.result != 0)
         {
             //read answer from both clients if they want to play again
+            if ((bytes = (read(playerOne.client_desc, &answr[0], sizeof(answr)))) < 0)
+            {
+                perror("Error reading answer from clt a desc\n");
+                return errno;
+            }
+
+            if (bytes == 0)
+            {
+                printf("Client A has disconnected!\n");
+                bzero(&msg, sizeof(msg));
+                strcpy((char *) msg, "DISCONNECTED");
+                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
+                {
+                    perror("Error writing to clt b desc\n");
+                    return errno;
+                }
+                return 0;
+            }
+
+            if ((bytes = (read(playerTwo.client_desc, &answr[1], sizeof(answr)))) < 0)
+            {
+                perror("Error reading answer from clt b desc\n");
+                return errno;
+            }
+            if (bytes == 0)
+            {
+                printf("Client A has disconnected!\n");
+                bzero(&msg, sizeof(msg));
+                strcpy((char *) msg, "DISCONNECTED");
+                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
+                {
+                    perror("Error writing to clt b desc\n");
+                    return errno;
+                }
+                return 0;
+            }
+
+            if (answr[1] == answr[0] && answr[1] == 1)
+            {
+                bzero(data.map, sizeof(data.map));
+                continue;
+            }
+
+            if (answr[1] != 1 && answr[0] != 1)
+            {
+                return 0;
+            }
+
+            if (answr[1] != 1 && answr[0] == 1)
+            {
+                //write to A that B has disconencted
+                return 0;
+            }
+
+            if (answr[0] != 1 && answr[1] == 1)
+            {
+                //write to B that A has disconencted
+                return 0;
+            }
+
+
+
         }
 
         //printf("Result is : %d\n", result);
@@ -363,10 +426,60 @@ int playGame(playerData *playerList, int numb)
             return errno;
         }
 
-        //printf("Result 2 is : %d\n", result);
+        if (data.result != 0) {
+            //read answer from both clients if they want to play again
+            if ((bytes = (read(playerOne.client_desc, &answr[0], sizeof(answr)))) < 0) {
+                perror("Error reading answer from clt a desc\n");
+                return errno;
+            }
+
+            if (bytes == 0) {
+                printf("Client A has disconnected!\n");
+                bzero(&msg, sizeof(msg));
+                strcpy((char *) msg, "DISCONNECTED");
+                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0) {
+                    perror("Error writing to clt b desc\n");
+                    return errno;
+                }
+                return 0;
+            }
+
+            if ((bytes = (read(playerTwo.client_desc, &answr[1], sizeof(answr)))) < 0) {
+                perror("Error reading answer from clt b desc\n");
+                return errno;
+            }
+            if (bytes == 0) {
+                printf("Client A has disconnected!\n");
+                bzero(&msg, sizeof(msg));
+                strcpy((char *) msg, "DISCONNECTED");
+                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0) {
+                    perror("Error writing to clt b desc\n");
+                    return errno;
+                }
+                return 0;
+            }
+
+            if (answr[1] == answr[0] && answr[1] == 1) {
+                bzero(data.map, sizeof(data.map));
+                continue;
+            }
+
+            if (answr[1] != 1 && answr[0] != 1) {
+                return 0;
+            }
+
+            if (answr[1] != 1 && answr[0] == 1) {
+                //write to A that B has disconencted
+                return 0;
+            }
+
+            if (answr[0] != 1 && answr[1] == 1) {
+                //write to B that A has disconencted
+                return 0;
+            }
 
 
-
+        }
 
     }
 

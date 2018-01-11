@@ -19,6 +19,10 @@
 #define HEIGHT 8
 #define WIDTH 8
 
+#define SELF 1
+#define OPPONENT 0
+#define MENU_STATE 2
+
 extern int errno;
 
 typedef struct playerData playerData;
@@ -51,36 +55,35 @@ int main()
 
 	int server_fd;
 	struct sockaddr_in server;
-	int answer = 0;
+	int answer = MENU_STATE;
 	/*creating socket*/
 
 	printf("Welcome to Connect 4!\n");
 	fflush(stdout);
 
-	while (answer == 0)
-	{
+	do{
+
 		if (getMenuInput() == 1)
 		{
-		if ( (server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1)
-		{
-			perror ("Error creating socket()\n");
-			return errno;
-		}
-
-
-		/*socket address structure*/
-		server.sin_family=AF_INET;
-		server.sin_addr.s_addr=inet_addr("127.0.0.1");
-		server.sin_port=htons(5000);
-
-			/*connecting to server*/
-			if (connect (server_fd, (struct sockaddr *) &server,sizeof (struct sockaddr)) == -1)
+			if ( (server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1)
 			{
-				perror ("Error connecting()\n");
+				perror ("Error creating socket()\n");
 				return errno;
 			}
 
-			answer = str_echo(server_fd); //communication takes place here
+			/*socket address structure*/
+			server.sin_family=AF_INET;
+			server.sin_addr.s_addr=inet_addr("127.0.0.1");
+			server.sin_port=htons(5000);
+
+				/*connecting to server*/
+				if (connect (server_fd, (struct sockaddr *) &server,sizeof (struct sockaddr)) == -1)
+				{
+					perror ("Error connecting()\n");
+					return errno;
+				}
+
+				answer = str_echo(server_fd); //communication takes place here
 		}
 		else
 		{
@@ -89,8 +92,103 @@ int main()
 		}
 
 		close(server_fd);
-	}
+	}while (answer == 0);
 	return 0;
+}
+int winHandler(int itsMe, int server_fd)
+{
+	char answer[15];
+	int answr;
+
+	if (itsMe == SELF)
+	{
+		printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");
+	}
+	else
+	{
+		printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", p_data.oponnent_name);
+	}
+
+	do
+	{	
+		printf("You: ");
+		fflush(stdout);
+		answr = -1;
+
+		if (( read(0, answer, sizeof(answer))) < 0)
+		{
+			perror ("Error reading from stdin\n");
+			return errno;
+		}
+
+		if (strcmp(answer, "1\n") == 0)
+		{
+			answr = 1;
+		}
+		else if (strcmp(answer, "2\n") == 0)
+		{
+			answr = 0;
+		}
+		else if (strcmp(answer, "3\n") == 0)
+		{
+			answr = 3;
+		}
+		
+		if (answr == 0 || answr == 1 || answr == 3 )
+		{
+			 if (write (server_fd, &answr, sizeof(answr)) < 0)
+			{
+				perror ("Error while writing to the Server.\n");
+				return -1;
+			}
+
+
+
+			return answr;
+		}
+
+		printf("1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");	
+		fflush(stdout);
+	}while(1);
+}
+int exitHandler(int target)
+{
+	char answer[10];
+	if (target = SELF)
+	{
+		printf("Lost connection to the server... \nWant to try to reconnect? [Y/N]\n");
+	}
+	else
+	{
+		printf("Opponent has dissconnected..\nWant to Play some more? [Y/N]\n");
+	}
+	
+	do{
+		printf("You: ");
+		fflush(stdout);
+
+		bzero(&answer, sizeof(answer));
+
+		if (( read(0, &answer, sizeof(answer))) < 0)
+		{
+		perror ("Error reading from stdin\n");
+		return errno;
+		}
+
+		printf("inp: %s/%d\n",answer, strcmp(answer, "y\n") == 0 );
+
+		if (strcmp(answer, "\n") == 0 || strcmp(answer, "y\n") == 0 || strcmp(answer, "Y\n") == 0 || strcmp(answer, "yes\n") == 0 || strcmp(answer, "1\n") == 0)
+		{
+			return 0;
+		}
+		else if (strcmp(answer, "NO\n") == 0 || strcmp(answer, "n\n") == 0 || strcmp(answer, "N\n") == 0 || strcmp(answer, "nop\n") == 0 || strcmp(answer, "0\n") == 0)
+		{
+			return 1;
+		}
+		
+		printf("Want to try to reconnect? [Y/N]\n");	
+		fflush(stdout);
+	}while(1);
 }
 void printHelp()
 {
@@ -230,12 +328,18 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 	pair data;
 	char buf[BUFF_SIZE];
 	ssize_t bytes;
+	int answer;
 
 	if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0) //signal that the other client has connected
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
+	if (bytes == 0)
+	{
+		return exitHandler(SELF);
+	}
+
 	bzero(&data, sizeof(data));
 	printMap(data.map);
 	printf("You are playing agasint %s!\nYou start!\n", oponnent_name);
@@ -252,35 +356,42 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 			return 1;
 		}
 
-
-		fflush(stdout);
-
 		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
 		{
-			perror ("Error reading from stdin\n");
+			perror ("Error reading from server data\n");
 			return errno;
 		}
 		if (bytes == 0)
 		{
-			printf("Lost connection to the server... \nReconnecting..\n");
-			fflush(stdout);
-			return 0;
+			return exitHandler(SELF);
 		}
-		if (strcmp(buf, "DISCONNECTED") == 0)
+		if (strcmp(data.message, "DISCONNECTED") == 0)
 		{
-			printf("Opponent has dissconnected..\nReconnecting..\n");
-			return 0;
+			return exitHandler(OPPONENT);
 		}
+
 		printMap(data.map);
+
 		if (data.result == 1)
 		{
-			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");
-			fflush(stdout);
+			answer = winHandler(SELF, server_fd);
+
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 		else if (data.result == 2)
 		{
-			printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", oponnent_name);
-			fflush(stdout);
+			answer = winHandler(OPPONENT,server_fd);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 
 		bzero(buf, BUFF_SIZE);
@@ -295,25 +406,35 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		}
 		if (bytes == 0)
 		{
-			printf("Lost connection to the server... \nReconnecting..\n");
-			fflush(stdout);
-			return 0;
+			return exitHandler(SELF);
 		}
-		if (strcmp(buf, "DISCONNECTED") == 0)
+		if (strcmp(data.message, "DISCONNECTED") == 0)
 		{
-			printf("Opponent has dissconnected..\nReconnecting..\n");
-			return 0;
+			return exitHandler(OPPONENT);
 		}
+
 		printMap(data.map);
+
 		if (data.result == 1)
 		{
-			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
-			fflush(stdout);
+			answer = winHandler(SELF, server_fd);
+
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 		else if (data.result == 2)
 		{
-			printf("YOUR OPPONENT WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
-			fflush(stdout);
+			answer = winHandler(OPPONENT, server_fd);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 		fflush(stdout);
 
@@ -325,6 +446,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 
 	char buf[BUFF_SIZE];
 	pair data;
+	int answer;
 	ssize_t bytes;
 	bzero(&data, sizeof(data));
 	printMap(data.map);
@@ -341,34 +463,38 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 			perror ("Error reading from stdin\n");
 			return errno;
 		}
-		fflush(stdout);
+
 		if (bytes == 0)
 		{
-			printf("Lost connection to the server...\nWant to try to reconnect ? Y/N..\n");
-			///TODO: handle answer
-			return 0;
+			return exitHandler(SELF);
 		}
 		if (strcmp(data.message, "DISCONNECTED") == 0)
 		{
-			printf("Opponent has dissconnected..\n");
-			return 0;
+			return exitHandler(OPPONENT);
 		}
 
 		printMap(data.map);
-		if (data.result == 2)
+		if (data.result == 1)
 		{
-			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n");
-			fflush(stdout);
+			answer = winHandler(OPPONENT, server_fd);
 
-			//read answer, transmit to server
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
-		else if (data.result == 1)
+		else if (data.result == 2)
 		{
-			printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", oponnent_name);
-			fflush(stdout);
-			//read answer, transmit to server
-		}
+			answer = winHandler(SELF, server_fd);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
 
+		}
 		bzero(buf, BUFF_SIZE);
 		printf("It's Your turn\n");
 		fflush(stdout);
@@ -384,20 +510,38 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 			return errno;
 		}
 
-		printMap(data.map);
-		if (data.result == 2)
+		if (bytes == 0)
 		{
-			printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
-			fflush(stdout);
-
-			//read answer, transmit to server
+			return exitHandler(SELF);
 		}
-		else if (data.result == 1)
+		if (strcmp(data.message, "DISCONNECTED") == 0)
 		{
-			printf("YOUR OPPONENT WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT");
-			fflush(stdout);
+			return exitHandler(OPPONENT);
+		}
 
-			//read answer, transmit to server
+		printMap(data.map);
+
+
+		if (data.result == 1)
+		{
+			answer = winHandler(OPPONENT, server_fd);
+
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
+		}
+		else if (data.result == 2)
+		{
+			answer = winHandler(SELF, server_fd);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 
 		}while(bytes > 0);
@@ -460,10 +604,11 @@ int str_echo(int server_fd)
 		strcpy(p_data.name, buf);
 	}
 
+
 	printf("Looking for other player..\n");
 	fflush(stdout);
 
-	if ((write(server_fd, buf, BUFF_SIZE)) < 0)
+	if ((write(server_fd, p_data.name, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
