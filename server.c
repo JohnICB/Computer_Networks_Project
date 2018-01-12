@@ -1,13 +1,13 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
-
 #include "gamedata.h"
 
 //extern int errno;
 
 
 static int *nr_clients;
+
 
 void child_exiting_handler(playerData *p, int serv_desc, int clt_desc, bool isError)
 {
@@ -30,7 +30,6 @@ void child_exiting_handler(playerData *p, int serv_desc, int clt_desc, bool isEr
 
 int main()
 {
-
     int server_descriptor,client_descriptor,len;
     struct sockaddr_in serv,cli;
     playerData playerList[1000];

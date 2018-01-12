@@ -46,6 +46,7 @@ playerData p_data;
 
 int str_echo(int server_fd); //takes care of the communication
 int getMenuInput();
+int exitHandler(int target);
 void printHelp();
 int main()
 {
@@ -95,12 +96,29 @@ int main()
 	}while (answer == 0);
 	return 0;
 }
-int winHandler(int itsMe, int server_fd)
+int winHandler(int itsMe, int server_fd, int isA)
 {
 	char answer[15];
 	int answr;
+	int score[2];
+	bzero(&answer, sizeof(answer));
 
-	if (itsMe == SELF)
+	if (( read(server_fd, &score, sizeof(score))) < 0)
+	{
+		perror ("Error reading from server\n");
+		return errno;
+	}
+
+	if (isA == 1)
+	{
+		printf("Score is: \nYou: %d     Your Opponent: %d\n", score[0], score[1] );
+	}
+	else
+	{
+		printf("Score is: \nYou: %d     Your Opponent: %d\n", score[1], score[0] );
+	}
+
+	if (itsMe == 1)
 	{
 		printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");
 	}
@@ -114,13 +132,14 @@ int winHandler(int itsMe, int server_fd)
 		printf("You: ");
 		fflush(stdout);
 		answr = -1;
-
+		bzero(&answer, sizeof(answer));
 		if (( read(0, answer, sizeof(answer))) < 0)
 		{
 			perror ("Error reading from stdin\n");
 			return errno;
 		}
 
+		
 		if (strcmp(answer, "1\n") == 0)
 		{
 			answr = 1;
@@ -131,7 +150,7 @@ int winHandler(int itsMe, int server_fd)
 		}
 		else if (strcmp(answer, "3\n") == 0)
 		{
-			answr = 3;
+			answr = 2;
 		}
 		
 		if (answr == 0 || answr == 1 || answr == 3 )
@@ -142,8 +161,27 @@ int winHandler(int itsMe, int server_fd)
 				return -1;
 			}
 
+			//printf("server said %d", answr);
+			fflush(stdout);
 
+			if (answr == 1)
+			{
+				printf("Waiting for opponent to answer...\n");
+				fflush(stdout);
+				if (( read(server_fd, &answr, sizeof(answr))) < 0)
+				{
+					perror ("Error reading from server\n");
+					return errno;
+				}
 
+				if (answr != 1)
+				{
+					answr = exitHandler(OPPONENT );
+
+					if (answr == 1)
+						return 2;
+				}
+			}
 			return answr;
 		}
 
@@ -154,7 +192,7 @@ int winHandler(int itsMe, int server_fd)
 int exitHandler(int target)
 {
 	char answer[10];
-	if (target = SELF)
+	if (target == SELF)
 	{
 		printf("Lost connection to the server... \nWant to try to reconnect? [Y/N]\n");
 	}
@@ -192,7 +230,7 @@ int exitHandler(int target)
 }
 void printHelp()
 {
-	printf("Hi! You have to fill a matrix with pices, The pieces fall straight down, occupying the next available space within the column.\nThe objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own pices\nTo chose the column, input it's number from 1 to 8.\nWhile playing, you can type /quit to quit the game\n/score to see the score\n");
+	printf("Hi! You have to fill a matrix with pices, The pieces fall straight down, occupying the next available space within the column.\nThe objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own pices\nTo chose the column, input it's number from 1 to 8.\nYou get 10 points for a horizontal or diagonal win and 15 for a diagonal win\nWhile playing, you can type /quit to quit the game\n/score to see the score\n");
 	fflush(stdout);
 }
 int getMenuInput()
@@ -304,21 +342,22 @@ int getPlayerInput(char *input, size_t size, int server_fd)
 }
 void printMap(char map[][HEIGHT])
 {
+	printf("\n---------------------------------\n");
 	for (int i = 0; i < WIDTH; ++i)
     {
         for (int j = 0; j < HEIGHT; ++j)
         {
             if(map[i][j] != 0)
             {
-                printf("| %c |", map[i][j]);
+                printf("| %c ", map[i][j]);
             }
             else
             {
-                printf("|   |");
+                printf("|   ");
             }
               //printf("| %d |", map[i][j]);
         }
-        printf("\n---------------------------------------\n");
+        printf("|\n---------------------------------\n");
     }
     fflush(stdout);
 }
@@ -374,7 +413,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 
 		if (data.result == 1)
 		{
-			answer = winHandler(SELF, server_fd);
+			answer = winHandler(1, server_fd, 1);
 
 			if (answer == 1)
 			{
@@ -385,7 +424,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		}
 		else if (data.result == 2)
 		{
-			answer = winHandler(OPPONENT,server_fd);
+			answer = winHandler(0,server_fd, 1);
 			if (answer == 1)
 			{
 				continue;
@@ -417,7 +456,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 
 		if (data.result == 1)
 		{
-			answer = winHandler(SELF, server_fd);
+			answer = winHandler(1, server_fd,1 );
 
 			if (answer == 1)
 			{
@@ -428,7 +467,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		}
 		else if (data.result == 2)
 		{
-			answer = winHandler(OPPONENT, server_fd);
+			answer = winHandler(0, server_fd, 1);
 			if (answer == 1)
 			{
 				continue;
@@ -476,7 +515,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		printMap(data.map);
 		if (data.result == 1)
 		{
-			answer = winHandler(OPPONENT, server_fd);
+			answer = winHandler(0, server_fd, 0);
 
 			if (answer == 1)
 			{
@@ -487,7 +526,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		}
 		else if (data.result == 2)
 		{
-			answer = winHandler(SELF, server_fd);
+			answer = winHandler(1, server_fd, 0);
 			if (answer == 1)
 			{
 				continue;
@@ -524,7 +563,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 
 		if (data.result == 1)
 		{
-			answer = winHandler(OPPONENT, server_fd);
+			answer = winHandler(0, server_fd,0);
 
 			if (answer == 1)
 			{
@@ -535,7 +574,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		}
 		else if (data.result == 2)
 		{
-			answer = winHandler(SELF, server_fd);
+			answer = winHandler(1, server_fd, 0);
 			if (answer == 1)
 			{
 				continue;
