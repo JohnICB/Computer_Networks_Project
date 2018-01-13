@@ -23,6 +23,15 @@
 #define OPPONENT 0
 #define MENU_STATE 2
 
+#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
+#define YEL   "\x1B[33m"
+#define BLU   "\x1B[34m"
+#define MAG   "\x1B[35m"
+#define CYN   "\x1B[36m"
+#define WHT   "\x1B[37m"
+#define RESET "\x1B[0m"
+
 extern int errno;
 
 typedef struct playerData playerData;
@@ -43,7 +52,7 @@ struct pair
 
 playerData p_data;
 
-
+void printEmptyMap();
 int str_echo(int server_fd); //takes care of the communication
 int getMenuInput();
 int exitHandler(int target);
@@ -174,6 +183,11 @@ int winHandler(int itsMe, int server_fd, int isA)
 					return errno;
 				}
 
+				if (answr == 1)
+				{
+					printEmptyMap();
+				}
+
 				if (answr != 1)
 				{
 					answr = exitHandler(OPPONENT );
@@ -274,7 +288,7 @@ int getMenuInput()
 
 	return 0;
 }
-int getPlayerInput(char *input, size_t size, int server_fd)
+int getPlayerInput(char *input, size_t size, int server_fd, int isA)
 {
 	int isValid = 0;
 	int score[2];
@@ -307,9 +321,16 @@ int getPlayerInput(char *input, size_t size, int server_fd)
           	  perror ("Error reading from server\n");
           	  return -1;
        		}
-
-       		printf("Score is: \nYou: %d     Your Opponent: %d\n", score[0], score[1] );
-       		fflush(stdout);
+       		if (isA == 1)
+       		{
+       			printf("Score is: \nYou: %d     Your Opponent: %d\n", score[0], score[1] );
+       			fflush(stdout);
+       		}
+       		else
+       		{
+       			printf("Score is: \nYou: %d     Your Opponent: %d\n", score[1], score[0] );
+       			fflush(stdout);
+       		}
        		isValid = 5;
        		continue;
 		}
@@ -341,26 +362,55 @@ int getPlayerInput(char *input, size_t size, int server_fd)
 	return 0;
 }
 void printMap(char map[][HEIGHT])
-{
-	printf("\n---------------------------------\n");
+{				  
+	printf(BLU "\n┏━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┓\n");
 	for (int i = 0; i < WIDTH; ++i)
     {
         for (int j = 0; j < HEIGHT; ++j)
         {
             if(map[i][j] != 0)
             {
-                printf("| %c ", map[i][j]);
+            	if (map[i][j] == 'X')
+            	{
+            		//printf(BLU "┃" RED "███" RESET);
+            		printf(BLU "┃" RED " ⬤  " RESET);
+            	}
+            	else
+            		//printf(BLU "┃" YEL "███" RESET);	
+            		printf(BLU "┃" YEL " ⬤  " RESET);	
+                //printf(BLU "┃ %c ", map[i][j]);
             }
             else
             {
-                printf("|   ");
+                printf(BLU "┃    ");
             }
-              //printf("| %d |", map[i][j]);
         }
-        printf("|\n---------------------------------\n");
+        if(i < WIDTH - 1)
+        printf(BLU "┃\n┣━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━┫\n" );
     }
+    printf(BLU "┃\n┗━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┛\n" RESET);
+    printf("  1    2    3    4    5    6    7    8   \n\n");
+    //printf("---------------------------------\n");
     fflush(stdout);
 }
+void printEmptyMap()
+{
+		printf(BLU "\n┏━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┓\n");
+	for (int i = 0; i < WIDTH; ++i)
+    {
+        for (int j = 0; j < HEIGHT; ++j)
+        {
+            printf(BLU "┃   ");
+        }
+        if(i < WIDTH - 1)
+        printf(BLU "┃\n┣━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━┫\n" );
+    }
+    printf(BLU "┃\n┗━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┛\n" RESET);
+    printf("  1    2    3    4    5    6    7    8   \n\n");
+    //printf("---------------------------------\n");
+    fflush(stdout);
+}
+
 int client_A_Handler(int server_fd, char oponnent_name[15])
 {
 	fflush(stdout);
@@ -390,7 +440,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		printf("It's Your turn\n");
 		fflush(stdout);
 
-		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
+		if(getPlayerInput(buf, BUFF_SIZE, server_fd, 1) == 1)
 		{
 			return 1;
 		}
@@ -538,7 +588,7 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 		printf("It's Your turn\n");
 		fflush(stdout);
 
-		if(getPlayerInput(buf, BUFF_SIZE, server_fd) == 1)
+		if(getPlayerInput(buf, BUFF_SIZE, server_fd, 0) == 1)
 		{
 			return 1;
 		}

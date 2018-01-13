@@ -122,6 +122,187 @@ int checkValidInput(const char *input)
 
     return 0;
 }
+int initPlayers(playerData *playerOne, playerData *playerTwo)
+{
+    char msg[BUFF_SIZE] = "";
+    //*
+    //read from A his name
+    if ((read(playerOne->client_desc, msg, BUFF_SIZE)) < 0)
+    {
+        perror("Error reading NAME from clt a desc\n");
+        return errno;
+    }
+    strcpy(playerTwo->oponnent_name, (const char *) msg);
+
+    //read from B his name
+    if ((read(playerTwo->client_desc, msg, BUFF_SIZE)) < 0)
+    {
+        perror("Error reading NAME from clt a desc\n");
+        return errno;
+    }
+    strcpy(playerOne->oponnent_name, (const char *) msg);
+
+    printf("A: %s\nB: %s\n", playerTwo->oponnent_name, playerOne->oponnent_name);
+// */
+
+    //write to A name of B
+    if ((write(playerOne->client_desc, playerOne->oponnent_name, BUFF_SIZE)) < 0) //just a signal
+    {
+        perror("Error writing to clt a desc\n");
+        return errno;
+    }
+    //write to B name of A
+    if ((write(playerTwo->client_desc, playerTwo->oponnent_name, BUFF_SIZE)) < 0) //just a signal
+    {
+        perror("Error writing to clt a desc\n");
+        return errno;
+    }
+
+    if ((write(playerOne->client_desc, msg, BUFF_SIZE)) < 0) //just a signal
+    {
+        perror("Error writing to clt a desc\n");
+        return errno;
+    }
+}
+int getInput(playerData *playerOne, playerData *playerTwo, int scoreKeeper[2], pair *data)
+{
+    int isValid;
+    ssize_t bytes;
+    do{
+        isValid = 3;
+        bzero(&data->message, sizeof(data->message));
+        if ((bytes = read(playerOne->client_desc, &data->message, sizeof(data->message))) < 0)
+        {
+            perror("Error reading from clt a desc\n");
+            return errno;
+        }
+        if (bytes == 0)
+        {
+            printf("Client A has disconnected!\n");
+            bzero(&data->message, sizeof(data->message));
+            strcpy((char *) data->message, "DISCONNECTED");
+            if ((write(playerTwo->client_desc, &data->message, sizeof(data->message))) < 0)
+            {
+                perror("Error writing to clt b desc\n");
+                return errno;
+            }
+            return 0;
+        }
+        printf(" ff %s\n", data->message);
+        if (strcmp(data->message, "/score\n") == 0)
+        {
+            if ((write(playerOne->client_desc, scoreKeeper, sizeof(scoreKeeper))) < 0)
+            {
+                perror("Error wr to clt a desc\n");
+                return errno;
+            }
+            printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[0], scoreKeeper[1] );
+            fflush(stdout);
+            isValid = 5;
+            continue;
+        }
+
+        isValid = checkValidInput(data->message);
+        //printf(" ff %d\n", data.map[0][atoi(msg)-1]);
+
+        if (data->map[0][atoi(data->message)-1] != 0) //check if column is full
+        {
+            isValid = 2;
+        }
+
+        printf("Valid from A: %s -> %d \n",data->message, isValid);
+        fflush(stdout);
+        //printf("isvalid : %d\n", isValid);
+
+        if ((write(playerOne->client_desc, &isValid, sizeof(isValid))) < 0)
+        {
+            perror("Error wr to clt a desc\n");
+            return errno;
+        }
+
+    }while(isValid != 0);
+
+    return 0;
+}
+int winHandler(playerData *playerOne, playerData *playerTwo, int scoreKeeper[2], pair *data)
+{
+    int answr[2] = {-1,-1};
+    ssize_t bytes;
+
+    if ((write(playerTwo->client_desc, scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
+    {
+        perror("Error writing to clt b desc\n");
+        return errno;
+    }
+    if ((write(playerOne->client_desc, scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
+    {
+        perror("Error writing to clt A desc\n");
+        return errno;
+    }
+
+    printf("Won from 1!\n");
+    //read answer from both clients if they want to play again
+    if ((bytes = (read(playerOne->client_desc, &answr[0], sizeof(answr[0])))) < 0) {
+        perror("Error reading answer from clt a desc\n");
+        return errno;
+    }
+
+    if (bytes == 0) {
+        printf("Client A has disconnected!\n");
+        answr[0] = 2;
+    }
+    printf("read from a ans %d\n", answr[0]);
+
+    if ((bytes = (read(playerTwo->client_desc, &answr[1], sizeof(answr[1])))) < 0) {
+        perror("Error reading answer from clt b desc\n");
+        return errno;
+    }
+    if (bytes == 0) {
+        printf("Client B has disconnected!\n");
+        answr[1] = 2;
+    }
+
+    printf("read from b ans %d\n", answr[1]);
+
+    if (answr[1] == answr[0] && answr[1] == 1) {
+        bzero(data->map, sizeof(data->map));
+        if ((write(playerOne->client_desc, &answr[1], sizeof(answr[1]))) < 0) {
+            perror("Error writing to clt a desc\n");
+            return errno;
+        }
+        if ((write(playerTwo->client_desc, &answr[1], sizeof(answr[1]))) < 0) {
+            perror("Error writing to clt a desc\n");
+            return errno;
+        }
+        return 1;
+    }
+
+    if (answr[1] != 1 && answr[0] != 1) {
+        return 0;
+    }
+
+    if (answr[1] != 1 && answr[0] == 1) {
+        //write to A that B has disconencted
+        printf("Client B has disconnected!\n");
+        answr[1] = 2;
+        if ((write(playerOne->client_desc, &answr[1], sizeof(answr[1]))) < 0) {
+            perror("Error writing to clt a desc\n");
+            return errno;
+        }
+        return 0;
+    }
+
+    if (answr[0] != 1 && answr[1] == 1) {
+        //write to B that A has disconencted
+        printf("Client A has disconnected!\n");
+        answr[1] = 2;
+        if ((write(playerTwo->client_desc, &answr[1], sizeof(answr[1]))) < 0) {
+            perror("Error writing to clt b desc\n");
+            return errno;
+        }
+        return 0;
+    }
+}
 int playGame(playerData *playerList, int numb)
 {
     playerData playerOne = playerList[numb -1];
@@ -131,14 +312,17 @@ int playGame(playerData *playerList, int numb)
     int answr[2] = {-1,-1};
 
     //int nrOfMoves = 0;
-//
+
     pair data;
     bzero(&data, sizeof(data));
 
     ssize_t bytes;
 
-    char msg[BUFF_SIZE] = "";
-    //*
+    initPlayers(&playerOne, &playerTwo);
+
+    //char msg[BUFF_SIZE] = "";
+    /*
+
     //read from A his name
     if ((read(playerOne.client_desc, msg, BUFF_SIZE)) < 0)
     {
@@ -156,7 +340,7 @@ int playGame(playerData *playerList, int numb)
     strcpy(playerOne.oponnent_name, (const char *) msg);
 
     printf("A: %s\nB: %s\n", playerTwo.oponnent_name, playerOne.oponnent_name);
-// */
+
 
     //write to A name of B
     if ((write(playerOne.client_desc, playerOne.oponnent_name, BUFF_SIZE)) < 0) //just a signal
@@ -176,69 +360,18 @@ int playGame(playerData *playerList, int numb)
         perror("Error writing to clt a desc\n");
         return errno;
     }
-
+// */
     while(1)
     {
-        int isValid = 3;
-        bzero(&msg, BUFF_SIZE);
+        bzero(&data.message, sizeof(data.message));
 
-        do{
-            isValid = 3;
-            bzero(&msg, BUFF_SIZE);
-        if ((bytes = read(playerOne.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt a desc\n");
-            return errno;
-        }
-        if (bytes == 0)
-        {
-            printf("Client A has disconnected!\n");
-            bzero(&msg, sizeof(msg));
-            strcpy((char *) msg, "DISCONNECTED");
-            if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
-            {
-                perror("Error writing to clt b desc\n");
-                return errno;
-            }
-            return 0;
-        }
 
-            if (strcmp(msg, "/score\n") == 0)
-            {
-                if ((write(playerOne.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0)
-                {
-                    perror("Error wr to clt a desc\n");
-                    return errno;
-                }
-                printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[0], scoreKeeper[1] );
-                fflush(stdout);
-                isValid = 5;
-                continue;
-            }
+        getInput(&playerOne, &playerTwo, scoreKeeper, &data);
 
-            isValid = checkValidInput(msg);
-            //printf(" ff %d\n", data.map[0][atoi(msg)-1]);
-
-            if (data.map[0][atoi(msg)-1] != 0) //check if column is full
-            {
-                isValid = 2;
-            }
-
-            printf("Valid from A: %s -> %d \n",msg, isValid);
-            fflush(stdout);
-            //printf("isvalid : %d\n", isValid);
-
-        if ((write(playerOne.client_desc, &isValid, sizeof(isValid))) < 0)
-        {
-            perror("Error wr to clt a desc\n");
-            return errno;
-        }
-
-        }while(isValid != 0);
-
-        update_map(&data, atoi(msg), 'X'); //symbol a
+        update_map(&data, atoi(data.message), (char) 'X'); //symbol a
 
         data.result = checkWin( data.map);
+
         if (data.result != 0)
         {
             switch (data.result)
@@ -255,8 +388,6 @@ int playGame(playerData *playerList, int numb)
             data.result = 1;
         }
 
-        bzero(data.message, sizeof(data.message));
-        strcpy(data.message, msg);
 
         if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {
@@ -272,144 +403,21 @@ int playGame(playerData *playerList, int numb)
 
         if (data.result != 0)
         {
-
-            if ((write(playerTwo.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
+            if (winHandler(&playerOne, &playerTwo, scoreKeeper, &data) == 1)
             {
-                perror("Error writing to clt b desc\n");
-                return errno;
-            }
-            if ((write(playerOne.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
-            {
-                perror("Error writing to clt A desc\n");
-                return errno;
-            }
-
-            printf("Won from 1!\n");
-            //read answer from both clients if they want to play again
-            if ((bytes = (read(playerOne.client_desc, &answr[0], sizeof(answr[0])))) < 0) {
-                perror("Error reading answer from clt a desc\n");
-                return errno;
-            }
-
-            if (bytes == 0) {
-                printf("Client A has disconnected!\n");
-                answr[0] = 2;
-            }
-            printf("read from a ans %d\n", answr[0]);
-
-            if ((bytes = (read(playerTwo.client_desc, &answr[1], sizeof(answr[1])))) < 0) {
-                perror("Error reading answer from clt b desc\n");
-                return errno;
-            }
-            if (bytes == 0) {
-                printf("Client B has disconnected!\n");
-                answr[1] = 2;
-            }
-
-            printf("read from b ans %d\n", answr[1]);
-
-            if (answr[1] == answr[0] && answr[1] == 1) {
-                bzero(data.map, sizeof(data.map));
-                if ((write(playerOne.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
-                if ((write(playerTwo.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
                 continue;
             }
-
-            if (answr[1] != 1 && answr[0] != 1) {
+            else
+            {
                 return 0;
             }
-
-            if (answr[1] != 1 && answr[0] == 1) {
-                //write to A that B has disconencted
-                printf("Client B has disconnected!\n");
-                answr[1] = 2;
-                if ((write(playerOne.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
-                return 0;
-            }
-
-            if (answr[0] != 1 && answr[1] == 1) {
-                //write to B that A has disconencted
-                printf("Client A has disconnected!\n");
-                answr[1] = 2;
-                if ((write(playerTwo.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt b desc\n");
-                    return errno;
-                }
-                return 0;
-            }
-
 
 
         }
 
-        //printf("Result is : %d\n", result);
+        getInput(&playerTwo, &playerOne, scoreKeeper, &data);
 
-
-        bzero(msg, BUFF_SIZE);
-
-        do{
-            isValid = 3;
-        bzero(&msg, sizeof(msg));
-        if ((bytes = read(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
-        {
-            perror("Error reading from clt b desc\n");
-            return errno;
-        }
-
-            if (bytes == 0)
-            {
-                printf("Client A has disconnected!\n");
-                bzero(&msg, sizeof(msg));
-                strcpy((char *) msg, "DISCONNECTED");
-                if ((write(playerTwo.client_desc, msg, BUFF_SIZE)) < 0)
-                {
-                    perror("Error writing to clt b desc\n");
-                    return errno;
-                }
-                return 0;
-            }
-
-            if (strcmp(msg, "/score\n") == 0)
-            {
-                if ((write(playerTwo.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0)
-                {
-                    perror("Error wr to clt a desc\n");
-                    return errno;
-                }
-                printf("Score is: \nYou: %d     Your Opponent: %d\n", scoreKeeper[1], scoreKeeper[0] );
-                fflush(stdout);
-                isValid = 5;
-                continue;
-            }
-            //printf(" ff %d\n", data.map[0][atoi(msg)-1]);
-            isValid = checkValidInput(msg);
-
-            if (data.map[0][atoi(msg) - 1] != 0)
-            {
-                isValid = 2;
-            }
-
-            printf("Valid from B: %s -> %d \n",msg, isValid);
-            fflush(stdout);
-            if ((write(playerTwo.client_desc, &isValid, sizeof(isValid))) < 0)
-            {
-                perror("Error wr to clt a desc\n");
-                return errno;
-            }
-
-        }while(isValid != 0);
-
-
-        update_map(&data, atoi(msg), 'O'); //symbol b
+        update_map(&data, atoi(data.message), 'O'); //symbol b
         data.result = checkWin(data.map);
         data.result = checkWin( data.map);
         if (data.result != 0)
@@ -428,9 +436,6 @@ int playGame(playerData *playerList, int numb)
             data.result = 2;
         }
 
-        bzero(data.message, sizeof(data.message));
-        strcpy(data.message, msg);
-
 
         if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {
@@ -445,77 +450,14 @@ int playGame(playerData *playerList, int numb)
 
         if (data.result != 0) {
 
-            if ((write(playerTwo.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
+            if (winHandler(&playerOne, &playerTwo, scoreKeeper, &data) == 1)
             {
-                perror("Error writing to clt b desc\n");
-                return errno;
-            }
-            if ((write(playerOne.client_desc, &scoreKeeper, sizeof(scoreKeeper))) < 0) //HERE
-            {
-                perror("Error writing to clt A desc\n");
-                return errno;
-            }
-
-            printf("Won from 2!\n");
-            //read answer from both clients if they want to play again
-            if ((bytes = (read(playerOne.client_desc, &answr[0], sizeof(answr[0])))) < 0) {
-                perror("Error reading answer from clt a desc\n");
-                return errno;
-            }
-
-            if (bytes == 0) {
-                printf("Client A has disconnected!\n");
-                answr[0] = 2;
-            }
-
-            if ((bytes = (read(playerTwo.client_desc, &answr[1], sizeof(answr[1])))) < 0) {
-                perror("Error reading answer from clt b desc\n");
-                return errno;
-            }
-            if (bytes == 0) {
-                printf("Client B has disconnected!\n");
-                answr[1] = 2;
-            }
-
-            if (answr[1] == answr[0] && answr[1] == 1) {
-                bzero(data.map, sizeof(data.map));
-                if ((write(playerOne.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
-                if ((write(playerTwo.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
                 continue;
             }
-
-            if (answr[1] != 1 && answr[0] != 1) {
+            else
+            {
                 return 0;
             }
-
-            if (answr[1] != 1 && answr[0] == 1) {
-                //write to A that B has disconencted
-                printf("Client B has disconnected!\n");
-                answr[1] = 2;
-                if ((write(playerOne.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt a desc\n");
-                    return errno;
-                }
-                return 0;
-            }
-
-            if (answr[0] != 1 && answr[1] == 1) {
-                //write to B that A has disconencted
-                printf("Client A has disconnected!\n");
-                answr[1] = 2;
-                if ((write(playerTwo.client_desc, &answr[1], sizeof(answr[1]))) < 0) {
-                    perror("Error writing to clt b desc\n");
-                    return errno;
-                }
-                return 0;
-            }
-
 
         }
 
