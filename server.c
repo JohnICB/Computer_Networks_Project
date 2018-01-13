@@ -3,7 +3,7 @@
 #include <sys/mman.h>
 #include "gamedata.h"
 
-//extern int errno;
+extern int errno;
 
 
 static int *nr_clients;
@@ -24,9 +24,6 @@ void child_exiting_handler(playerData *p, int serv_desc, int clt_desc, bool isEr
     bzero(p, sizeof(*p));
 
 }
-
-
-
 
 int main()
 {
@@ -76,12 +73,12 @@ int main()
             perror("Error accepting()\n");
             continue;
         }
-        printf("Connected to Client w/ desc = %d\n", client_descriptor);
+        //printf("Connected to Client w/ desc = %d\n", client_descriptor);
 
 
 
         *nr_clients = *nr_clients + 1;
-        printf("nr clts %d\n", *nr_clients);
+        //printf("nr clts %d\n", *nr_clients);
 
         playerList[*nr_clients].client_desc = client_descriptor;
 
@@ -123,24 +120,7 @@ int main()
             //   printf("nr = %d\n", nr[0]);
         }
     }
-    close(client_descriptor);
-    close(server_descriptor);
-    return 0;
+    //close(client_descriptor);
+    //close(server_descriptor);
+    //return 0;
 }
-
-
-/* TODO: Check which file descriptors are aviable to determinate which client has disconnected
-Use shared memory
-Add semaphores or something like that
-Maybe share all the array of structs so when a client disconnects updates the file descriptors and nr of clients
- Schimba *nr of clients pentru ca poate sa fuck up pipeurile
- trebuie ceva ceva cu shared memory sa inchida descriptorii si parintele poate un vector in care punem descriptrii ce se inchid alocat dinamic
- si marimea lui
-
-
- ERROR CHECK cand se inchide vreun cleint
- schimbarea nr client
- inchidera clientilor in server main ?
- Comenzi la client
- Inceperea jocului
- */

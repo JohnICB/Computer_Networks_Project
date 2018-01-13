@@ -9,27 +9,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define BUFF_SIZE 1024
 #define NAME_SIZE 15
-#define MAP_WIDTH 8
-#define MAP_HEIGHT 8
-
 
 #define HEIGHT 8
 #define WIDTH 8
 
 #define SELF 1
 #define OPPONENT 0
-#define MENU_STATE 2
 
 #define RED   "\x1B[31m"
-#define GRN   "\x1B[32m"
 #define YEL   "\x1B[33m"
 #define BLU   "\x1B[34m"
-#define MAG   "\x1B[35m"
-#define CYN   "\x1B[36m"
-#define WHT   "\x1B[37m"
 #define RESET "\x1B[0m"
 
 extern int errno;
@@ -38,7 +31,7 @@ typedef struct playerData playerData;
 typedef struct pair pair;
 struct playerData
 {
-    char oponnent_name[NAME_SIZE];
+    char opponent_name[NAME_SIZE];
     char name[NAME_SIZE];
     int client_desc;
 };
@@ -51,6 +44,7 @@ struct pair
 };
 
 playerData p_data;
+int SKIP_MENU = 0;
 
 void printEmptyMap();
 int str_echo(int server_fd); //takes care of the communication
@@ -60,12 +54,12 @@ void printHelp();
 int main()
 {
 	strcpy(p_data.name, "");
-	strcpy(p_data.oponnent_name, "");
+	strcpy(p_data.opponent_name, "");
 	p_data.client_desc = -1;
 
 	int server_fd;
 	struct sockaddr_in server;
-	int answer = MENU_STATE;
+	int answer;
 	/*creating socket*/
 
 	printf("Welcome to Connect 4!\n");
@@ -107,7 +101,7 @@ int main()
 }
 int winHandler(int itsMe, int server_fd, int isA)
 {
-	char answer[15];
+	char answer[3];
 	int answr;
 	int score[2];
 	bzero(&answer, sizeof(answer));
@@ -133,36 +127,42 @@ int winHandler(int itsMe, int server_fd, int isA)
 	}
 	else
 	{
-		printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", p_data.oponnent_name);
+		printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", p_data.opponent_name);
 	}
 
 	do
 	{	
 		printf("You: ");
 		fflush(stdout);
-		answr = -1;
-		bzero(&answer, sizeof(answer));
-		if (( read(0, answer, sizeof(answer))) < 0)
+        bzero(&answer, sizeof(answer));
+		//scanf("%d", &answr);
+		if (( read(0,  &answer, sizeof(answer))) < 0)
 		{
 			perror ("Error reading from stdin\n");
 			return errno;
 		}
+		answr = atoi(answer);
+		//printf("y said %d", answr);
+		//fflush(stdout);
+		//if (strcmp(answer, "1\n") == 0)
+		//{
+		//	answr = 1;
+		//	printf("1. %d\nvs %s\n", answr, answer);
+		//}
+		//else if (strcmp(answer, "2\n") == 0)
+		//{
+		//	answr = 0;
+		//	printf("2. %d\nvs %s\n", answr, answer);
+		//}
+		//else if (strcmp(answer, "3\n") == 0)
+		//{
+		//	answr = 2;
+		//	printf("3. %d\nvs %s\n", answr, answer);
+		//}
+		//printf("you said %d\nvs %s\n", answr, answer);
+		//fflush(stdout);
 
-		
-		if (strcmp(answer, "1\n") == 0)
-		{
-			answr = 1;
-		}
-		else if (strcmp(answer, "2\n") == 0)
-		{
-			answr = 0;
-		}
-		else if (strcmp(answer, "3\n") == 0)
-		{
-			answr = 2;
-		}
-		
-		if (answr == 0 || answr == 1 || answr == 3 )
+		if (answr == 2 || answr == 1 || answr == 3 )
 		{
 			 if (write (server_fd, &answr, sizeof(answr)) < 0)
 			{
@@ -171,7 +171,16 @@ int winHandler(int itsMe, int server_fd, int isA)
 			}
 
 			//printf("server said %d", answr);
-			fflush(stdout);
+			//fflush(stdout);
+
+			if (answr == 3)
+			{
+				return answr;
+			}
+			if (answr == 2)
+			{
+				return 0;
+			}
 
 			if (answr == 1)
 			{
@@ -227,10 +236,11 @@ int exitHandler(int target)
 		return errno;
 		}
 
-		printf("inp: %s/%d\n",answer, strcmp(answer, "y\n") == 0 );
+		//printf("inp: %s/%d\n",answer, strcmp(answer, "y\n") == 0 );
 
 		if (strcmp(answer, "\n") == 0 || strcmp(answer, "y\n") == 0 || strcmp(answer, "Y\n") == 0 || strcmp(answer, "yes\n") == 0 || strcmp(answer, "1\n") == 0)
 		{
+			SKIP_MENU = 1;
 			return 0;
 		}
 		else if (strcmp(answer, "NO\n") == 0 || strcmp(answer, "n\n") == 0 || strcmp(answer, "N\n") == 0 || strcmp(answer, "nop\n") == 0 || strcmp(answer, "0\n") == 0)
@@ -238,18 +248,32 @@ int exitHandler(int target)
 			return 1;
 		}
 		
-		printf("Want to try to reconnect? [Y/N]\n");	
-		fflush(stdout);
+		if (target == SELF)
+		{
+			printf("Lost connection to the server... \nWant to try to reconnect? [Y/N]\n");
+		}
+		else
+		{
+			printf("Opponent has disconnected..\nWant to Play some more? [Y/N]\n");
+		}
 	}while(1);
 }
 void printHelp()
 {
-	printf("Hi! You have to fill a matrix with pices, The pieces fall straight down, occupying the next available space within the column.\nThe objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own pices\nTo chose the column, input it's number from 1 to 8.\nYou get 10 points for a horizontal or diagonal win and 15 for a diagonal win\nWhile playing, you can type /quit to quit the game\n/score to see the score\n");
+	printf("Hi! You have to fill a matrix with pieces, The pieces fall straight down, occupying the next available space within the column.\nThe objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own pieces\nTo chose the column, input it's number from 1 to 8.\nYou get 10 points for a horizontal or diagonal win and 15 for a diagonal win\nWhile playing, you can type /quit to quit the game\n/score to see the score\n");
 	fflush(stdout);
 }
 int getMenuInput()
 {
+
+	if (SKIP_MENU == 1)
+	{
+		SKIP_MENU = 0;
+		return 1;
+	}
+
 	char input[BUFF_SIZE];
+
 	do{
 		bzero(input,  sizeof(input));
 		printf("Insert:\n1 To Play\n2 To Quit\n/help for help\n");
@@ -271,7 +295,7 @@ int getMenuInput()
 			fflush(stdout);
 			return 2;
 		}
-		else if (strcmp(input, "/help\n") == 0)
+		if (strcmp(input, "/help\n") == 0)
 		{
 			printHelp();
 			printf("Try again\n");
@@ -286,7 +310,7 @@ int getMenuInput()
 
 	}while(1);
 
-	return 0;
+	//return 0;
 }
 int getPlayerInput(char *input, size_t size, int server_fd, int isA)
 {
@@ -354,7 +378,7 @@ int getPlayerInput(char *input, size_t size, int server_fd, int isA)
         {
         	printf("Invalid Input. /help for help and rules!\n~Try Again!~\n");
         }
-        //printf("Had raed: %d\n", isValid);
+        //printf("Had readd: %d\n", isValid);
         fflush(stdout);
 
 	}while(isValid != 0);
@@ -362,7 +386,7 @@ int getPlayerInput(char *input, size_t size, int server_fd, int isA)
 	return 0;
 }
 void printMap(char map[][HEIGHT])
-{				  
+{
 	printf(BLU "\n┏━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┓\n");
 	for (int i = 0; i < WIDTH; ++i)
     {
@@ -389,29 +413,29 @@ void printMap(char map[][HEIGHT])
         printf(BLU "┃\n┣━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━┫\n" );
     }
     printf(BLU "┃\n┗━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┛\n" RESET);
-    printf("  1    2    3    4    5    6    7    8   \n\n");
+    printf("   1    2    3    4    5    6    7    8\n\n");
     //printf("---------------------------------\n");
     fflush(stdout);
 }
 void printEmptyMap()
 {
-		printf(BLU "\n┏━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┓\n");
+	printf(BLU "\n┏━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┳━━━━┓\n");
 	for (int i = 0; i < WIDTH; ++i)
     {
         for (int j = 0; j < HEIGHT; ++j)
         {
-            printf(BLU "┃   ");
+            printf(BLU "┃    ");
         }
         if(i < WIDTH - 1)
         printf(BLU "┃\n┣━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━╋━━━━┫\n" );
     }
     printf(BLU "┃\n┗━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┻━━━━┛\n" RESET);
-    printf("  1    2    3    4    5    6    7    8   \n\n");
+    printf("   1    2    3    4    5    6    7    8\n\n");
     //printf("---------------------------------\n");
     fflush(stdout);
 }
 
-int client_A_Handler(int server_fd, char oponnent_name[15])
+int client_A_Handler(int server_fd, char opponent_name[15])
 {
 	fflush(stdout);
 	pair data;
@@ -431,12 +455,11 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 
 	bzero(&data, sizeof(data));
 	printMap(data.map);
-	printf("You are playing agasint %s!\nYou start!\n", oponnent_name);
+	printf("You are playing agasint %s!\nYou start!\n", opponent_name);
 
 	do{
 		
 		bzero(buf, BUFF_SIZE);
-		int input = -1;
 		printf("It's Your turn\n");
 		fflush(stdout);
 
@@ -484,7 +507,7 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 		}
 
 		bzero(buf, BUFF_SIZE);
-		printf("It's %s's turn\n", oponnent_name);
+		printf("It's %s's turn\n", opponent_name);
 		fflush(stdout);
 		bzero(&data, sizeof(data));
 		fflush(stdout);
@@ -529,8 +552,10 @@ int client_A_Handler(int server_fd, char oponnent_name[15])
 
 
 	}while(1);
+
+	//return 2;
 }
-int client_B_Handler(int server_fd, char oponnent_name[15])
+int client_B_Handler(int server_fd, char opponent_name[15])
 {
 
 	char buf[BUFF_SIZE];
@@ -539,12 +564,12 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 	ssize_t bytes;
 	bzero(&data, sizeof(data));
 	printMap(data.map);
-	printf("You are playing against %s!\nYou start second!\n", oponnent_name);
+	printf("You are playing against %s!\nYou start second!\n", opponent_name);
 
 	do{
 		bzero(buf, BUFF_SIZE);
 		bzero(&data, sizeof(data));
-		printf("It's %s's turn\n", oponnent_name);
+		printf("It's %s's turn\n", opponent_name);
 		fflush(stdout);
 
 		if ((bytes = read(server_fd, &data, sizeof(data))) < 0)
@@ -633,7 +658,9 @@ int client_B_Handler(int server_fd, char oponnent_name[15])
 
 		}
 
-		}while(bytes > 0);
+	}while(1);
+
+	//return 2;
 }	
 bool checkValidName(char *name, int size)
 {
@@ -656,7 +683,7 @@ bool checkValidName(char *name, int size)
 
 	return true;
 }
-void inputPlayerName(char *buf, int size)
+void inputPlayerName(char *buf)
 {
 	do{
 	bzero(buf, BUFF_SIZE);
@@ -669,17 +696,15 @@ void inputPlayerName(char *buf, int size)
 		}
 	buf[strlen(buf) - 1] = '\0';
 
-	}while(!(checkValidName(buf, strlen(buf))));
+	}while(!(checkValidName(buf, (int) strlen(buf))));
 }
 int str_echo(int server_fd)
 {
 	char buf[BUFF_SIZE];//,buf1[BUFF_SIZE];
-	ssize_t bytes = 0;
-	int sz = 1; //bytes size
-	bzero(&buf, BUFF_SIZE);
+    bzero(&buf, BUFF_SIZE);
 	int cl_number;
 
-	if ((bytes = read(server_fd, &cl_number, BUFF_SIZE)) < 0)
+	if ((read(server_fd, &cl_number, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
@@ -689,7 +714,7 @@ int str_echo(int server_fd)
 	//printf(".%s, %d \n",p_data.name, strcmp(p_data.name, "") );
 	if (strcmp(p_data.name, "") == 0)
 	{
-		inputPlayerName(buf, strlen(buf));
+		inputPlayerName(buf);
 		strcpy(p_data.name, buf);
 	}
 
@@ -705,99 +730,20 @@ int str_echo(int server_fd)
 
 	bzero(&buf, BUFF_SIZE);
 
-	if ((bytes = read(server_fd, buf, BUFF_SIZE)) < 0)
+	if ((read(server_fd, buf, BUFF_SIZE)) < 0)
 	{
 		perror ("Error reading from stdin\n");
 		return errno;
 	}
-	strcpy(p_data.oponnent_name, buf);
+	strcpy(p_data.opponent_name, buf);
 
 	if (p_data.client_desc % 2 == 0)
 	{
-		return client_A_Handler(server_fd, p_data.oponnent_name);
+		return client_A_Handler(server_fd, p_data.opponent_name);
 	}
 	else
 	{
-		return client_B_Handler(server_fd, p_data.oponnent_name);
+		return client_B_Handler(server_fd, p_data.opponent_name);
 	}
 }
 
-
-
-
-   // do{
-   //     bzero(input,  size);
-   //     if ((read(0, input, size)) < 0)
-   //     {
-   //         perror ("Error reading from stdin\n");
-   //         return;
-   //     }
-//
-//   //     input[strlen(input) - 1] = '\0'; //remove '\n'
-//   //     //printf("succes\n");
-   // }while(!checValidInput(input, (int) strlen(input)));
-
-//void printMap(char *map)
-//{
-//	for (int i = 0; i < MAP_HEIGHT; ++i)
-//	{
-//		for (int j = 0; j < MAP_WIDTH; ++j)
-//		{
-//			printf("| %c |", map[i * j + j]);
-//		}
-//		printf("\n------------------\n");
-//	}
-//}
-
-//bool checValidInput(char *input, int size)
-//{
-//    bool ok = true;
-//    //printf("%s is valid \n", input);
-//    fflush(stdout);
-//    for (int i = 0; i < size; ++i)
-//    {
-//        if (input[i] < '0' || input[i] > '9')
-//        {
-//            if(input[i] == ' ')
-//            {
-//                ok = false;
-//                continue;
-//            }
-//
-//            printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-//            return false;
-//        }
-//        else if(ok == false)
-//        {
-//            printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-//            return false;
-//        }
-//    }
-//
-//    if (atoi(input) < 0 || atoi(input) > 8)
-//    {
-//        printf("You should only input numbers between 1 and 8!\n~Try Again!~\n");
-//        return false;
-//    }
-//    return true;
-//}
-//bool checkValidPlacement(const char *map, short pos)
-//{
-//    if(map[pos] == ' ')
-//    {
-//        return true;
-//    }
-//    else {
-//        printf("Column is full!\n~Try Again~!\n");
-//        return false;
-//    }
-//}
-//bool checkSpecialInput(char *input)
-//{
-//    if (strcmp(input, "/quit") == 0)
-//    {
-//        printf("Thanks for playing! Exiting now..\n");
-//        return true;
-//    }
-//    return false;
-//}

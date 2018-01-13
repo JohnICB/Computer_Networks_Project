@@ -15,7 +15,6 @@
 
 #define BUFF_SIZE 1024
 #define PORT 5000
-#define NAME_SIZE 15
 #define HEIGHT 8
 #define WIDTH 8
 
@@ -26,11 +25,9 @@ typedef struct pair pair;
 
 struct playerData
 {
-    char oponnent_name[BUFF_SIZE];
+    char opponent_name[BUFF_SIZE];
     int client_desc;
 };
-
-
 
 struct pair
 {
@@ -39,14 +36,13 @@ struct pair
     int result;
 };
 
-struct inputHelper
-{
-    char message[BUFF_SIZE];
-    bool isValid;
-};
 
 void update_map( pair *game_data, int pos, char symbol);
 int playGame(playerData *playerList, int numb);
-//int checkWin(char **map);
+int winHandler(playerData *playerOne, playerData *playerTwo, int scoreKeeper[2], pair *data);
+int getInput(playerData *playerOne, playerData *playerTwo, int scoreKeeper[2], pair *data);
+int initPlayers(playerData *playerOne, playerData *playerTwo);
+int checkValidInput(const char *input);
+int checkWin(char map[][HEIGHT]);
 
 #endif //UNTITLED_GAMEDATA_H
