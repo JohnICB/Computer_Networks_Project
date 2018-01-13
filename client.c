@@ -78,6 +78,7 @@ int main()
 			/*socket address structure*/
 			server.sin_family=AF_INET;
 			server.sin_addr.s_addr=inet_addr("127.0.0.1");
+			//server.sin_addr.s_addr=inet_addr("79.112.65.33");
 			server.sin_port=htons(5000);
 
 				/*connecting to server*/
