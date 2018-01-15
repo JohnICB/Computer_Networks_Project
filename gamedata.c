@@ -312,6 +312,7 @@ int playGame(playerData *playerList, int numb)
 
     int scoreKeeper[2] = {0,0};
     pair data;
+    int nrOfMoves = 0;
     bzero(&data, sizeof(data));
     initPlayers(&playerOne, &playerTwo);
 
@@ -319,6 +320,7 @@ int playGame(playerData *playerList, int numb)
     {
         bzero(&data.message, sizeof(data.message));
         getInput(&playerOne, &playerTwo, scoreKeeper, &data);
+        nrOfMoves++;
         update_map(&data, atoi(data.message), (char) 'X'); //symbol a
         data.result = checkWin( data.map);
 
@@ -332,9 +334,15 @@ int playGame(playerData *playerList, int numb)
             {
                 scoreKeeper[0] += 15;
             }
+
+
             data.result = 1; //signal that client B has won
         }
 
+        if (nrOfMoves == HEIGHT * WIDTH - 1)
+        {
+            data.result = 3; //egalitate
+        }
 
         if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {
@@ -361,9 +369,9 @@ int playGame(playerData *playerList, int numb)
         }
 
         getInput(&playerTwo, &playerOne, scoreKeeper, &data);
+        nrOfMoves++;
         update_map(&data, atoi(data.message), 'O'); //symbol b
         data.result = checkWin(data.map);
-        data.result = checkWin( data.map);
         if (data.result != 0)
         {
             if (data.result == 1 || data.result == 2 )
@@ -376,6 +384,12 @@ int playGame(playerData *playerList, int numb)
             }
             data.result = 2; //signal that client B has won
         }
+
+        if (nrOfMoves == HEIGHT * WIDTH - 1)
+        {
+            data.result = 3; //egalitate
+        }
+
 
         if ((write(playerTwo.client_desc, &data, sizeof(data))) < 0) //HERE
         {

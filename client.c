@@ -126,9 +126,13 @@ int winHandler(int itsMe, int server_fd, int isA)
 	{
 		printf("YOU WON!! \nInput: \n1 to PLAY AGAIN\n2 to go to the MENU\n3 to QUIT\n");
 	}
-	else
+	else if (itsMe == 0)
 	{
 		printf("%s WON!! \nInput: \n1 to PLAY AGAIN\n2 for MENU\n3 to QUIT\n", p_data.opponent_name);
+	}
+	else if (itsMe == 2)
+	{
+		printf("ITS A TIE!!\n");
 	}
 
 	do
@@ -143,25 +147,6 @@ int winHandler(int itsMe, int server_fd, int isA)
 			return errno;
 		}
 		answr = atoi(answer);
-		//printf("y said %d", answr);
-		//fflush(stdout);
-		//if (strcmp(answer, "1\n") == 0)
-		//{
-		//	answr = 1;
-		//	printf("1. %d\nvs %s\n", answr, answer);
-		//}
-		//else if (strcmp(answer, "2\n") == 0)
-		//{
-		//	answr = 0;
-		//	printf("2. %d\nvs %s\n", answr, answer);
-		//}
-		//else if (strcmp(answer, "3\n") == 0)
-		//{
-		//	answr = 2;
-		//	printf("3. %d\nvs %s\n", answr, answer);
-		//}
-		//printf("you said %d\nvs %s\n", answr, answer);
-		//fflush(stdout);
 
 		if (answr == 2 || answr == 1 || answr == 3 )
 		{
@@ -506,6 +491,16 @@ int client_A_Handler(int server_fd, char opponent_name[15])
 			else return answer;
 
 		}
+		else if (data.result == 3)
+		{
+			answer = winHandler(2, server_fd, 1);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
+		}
 
 		bzero(buf, BUFF_SIZE);
 		printf("It's %s's turn\n", opponent_name);
@@ -542,6 +537,15 @@ int client_A_Handler(int server_fd, char opponent_name[15])
 		else if (data.result == 2)
 		{
 			answer = winHandler(0, server_fd, 1);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
+		}else if (data.result == 3)
+		{
+			answer = winHandler(2, server_fd, 1);
 			if (answer == 1)
 			{
 				continue;
@@ -609,6 +613,15 @@ int client_B_Handler(int server_fd, char opponent_name[15])
 			}
 			else return answer;
 
+		}else if (data.result == 3)
+		{
+			answer = winHandler(2, server_fd, 0);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
 		}
 		bzero(buf, BUFF_SIZE);
 		printf("It's Your turn\n");
@@ -651,6 +664,15 @@ int client_B_Handler(int server_fd, char opponent_name[15])
 		else if (data.result == 2)
 		{
 			answer = winHandler(1, server_fd, 0);
+			if (answer == 1)
+			{
+				continue;
+			}
+			else return answer;
+
+		}else if (data.result == 3)
+		{
+			answer = winHandler(2, server_fd, 0);
 			if (answer == 1)
 			{
 				continue;
